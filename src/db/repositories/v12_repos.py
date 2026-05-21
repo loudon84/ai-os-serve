@@ -2,7 +2,7 @@
 
 import json
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models.local_task import LocalTask
@@ -87,6 +87,17 @@ class TaskEventRepository:
         await self._s.flush()
         await self._s.refresh(event)
         return event
+
+    async def list_by_profile_id(self, profile_id: str, *, limit: int = 200) -> list[TaskEvent]:
+        stmt = (
+            select(TaskEvent)
+            .join(LocalTask, TaskEvent.task_id == LocalTask.id)
+            .where(LocalTask.target_profile_id == profile_id)
+            .order_by(TaskEvent.created_at.desc(), TaskEvent.id.desc())
+            .limit(limit)
+        )
+        result = await self._s.execute(stmt)
+        return list(result.scalars().all())
 
 
 class TeamTaskBindingRepository:
@@ -227,3 +238,13 @@ class AuditRepository:
         await self._s.flush()
         await self._s.refresh(row)
         return row
+
+    async def list_by_profile_id(self, profile_id: str, *, limit: int = 200) -> list[AuditLog]:
+        stmt = (
+            select(AuditLog)
+            .where(func.json_extract(AuditLog.payload_json, "$.profile_id") == profile_id)
+            .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+            .limit(limit)
+        )
+        result = await self._s.execute(stmt)
+        return list(result.scalars().all())

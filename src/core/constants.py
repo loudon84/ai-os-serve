@@ -7,8 +7,12 @@ class ProfileType(StrEnum):
     DEFAULT = "default"
     WRITER = "writer"
     CODING = "coding"
+    ENGINEER = "engineer"
     FINANCE = "finance"
     RESEARCH = "research"
+    SPECIALIST = "specialist"
+    HURMAN = "hurman"
+    SALES = "sales"
 
 
 class GatewayStatus(StrEnum):

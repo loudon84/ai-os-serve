@@ -192,6 +192,30 @@ uv run ruff check .
 uv run mypy src
 ```
 
+### Database / Migrations (team_v1.4.1)
+
+Alembic chain: `0001` (profiles) → `0002` (v1.2 task tables) → `001_role_spec` (display fields + `profile_role_specs`).
+
+| Scenario | Command |
+|----------|---------|
+| Fresh SQLite | `uv run alembic upgrade head` |
+| Existing DB at v1.2 (`0002`) without v1.4 columns | `uv run alembic upgrade head` |
+| Already applied v1.4 role_spec DDL manually | `uv run alembic stamp 001_role_spec` |
+| Empty DB must not skip `0001`/`0002` — run full `upgrade head`, not only `001_role_spec` |
+
+Production must not rely on test-only `init_db()`; use Alembic only (`core/lifecycle.py`).
+
+**Role source layout:** compiled files live under `skills/role-source/agency-agents-zh/<repo-relative-path>`. Profiles installed before v1.4.1 with flat `skills/role-source/*.md` should run **Recompile Role** or reinstall preset.
+
+### team_v1.4.1 Windows verification (manual)
+
+1. `uv run alembic upgrade head`
+2. Desktop: install preset `team_v1.4` (optional overwrite)
+3. Start six expert profiles (9601–9641) or `startAll`
+4. Curl `http://127.0.0.1:9601/health` … `9641/health` — all OK
+5. Stop one profile; others remain healthy
+6. `GET /api/v1/profiles/{id}/events` — includes `profile_started` / `profile_stopped` audit rows
+
 If the project uses PowerShell scripts on Windows, prefer:
 
 ```powershell

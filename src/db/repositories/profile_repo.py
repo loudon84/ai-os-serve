@@ -21,6 +21,13 @@ class ProfileRepository:
         result = await self._session.execute(select(Profile).where(Profile.name == name))
         return result.scalar_one_or_none()
 
+    async def get_by_port(self, port: int, *, exclude_id: str | None = None) -> Profile | None:
+        stmt = select(Profile).where(Profile.gateway_port == port)
+        if exclude_id:
+            stmt = stmt.where(Profile.id != exclude_id)
+        result = await self._session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def get_first_by_type(self, profile_type: str) -> Profile | None:
         result = await self._session.execute(
             select(Profile)

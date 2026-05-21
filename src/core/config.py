@@ -83,6 +83,10 @@ class Settings(BaseSettings):
         p.mkdir(parents=True, exist_ok=True)
         return p
 
+    @property
+    def package_root(self) -> Path:
+        return _PACKAGE_ROOT
+
 
 _settings: Settings | None = None
 

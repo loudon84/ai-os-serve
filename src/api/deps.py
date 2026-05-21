@@ -8,10 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from core.config import Settings, get_settings
 from db.repositories.profile_repo import ProfileRepository
+from db.repositories.role_spec_repo import RoleSpecRepository
 from integrations.team_hub.client import TeamHubClient
 from services.gateway_supervisor import GatewaySupervisor
 from services.hermes_gateway_client import HermesGatewayService
 from services.profile_service import ProfileService
+from services.role_library_service import RoleLibraryService
 from services.task_routing_registry import TaskRoutingRegistry
 from services.task_runtime import TaskRuntimeService
 
@@ -55,6 +57,19 @@ def get_profile_service(
     settings: Settings = Depends(get_app_settings),
 ) -> ProfileService:
     return ProfileService(settings, ProfileRepository(session))
+
+
+def get_role_library_service(
+    session: AsyncSession = Depends(get_db_session),
+    settings: Settings = Depends(get_app_settings),
+    supervisor: GatewaySupervisor = Depends(get_gateway_supervisor),
+) -> RoleLibraryService:
+    return RoleLibraryService(
+        settings,
+        ProfileRepository(session),
+        RoleSpecRepository(session),
+        gateway_supervisor=supervisor,
+    )
 
 
 def get_hermes_service() -> HermesGatewayService:

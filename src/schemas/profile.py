@@ -27,6 +27,10 @@ class ProfileResponse(BaseModel):
     id: str
     name: str
     type: str
+    display_name: str | None = None
+    role: str | None = None
+    role_name: str | None = None
+    description: str | None = None
     hermes_home: str
     profile_path: str
     gateway_port: int

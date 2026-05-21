@@ -10,6 +10,7 @@ from api.v1 import (
     health,
     hermes_runs,
     profiles,
+    role_library,
     system,
     task_routing,
     tasks,
@@ -21,6 +22,7 @@ api_router = APIRouter(prefix="/api/v1", dependencies=[Depends(verify_desktop_to
 api_router.include_router(health.router)
 api_router.include_router(system.router)
 api_router.include_router(profiles.router)
+api_router.include_router(role_library.router)
 api_router.include_router(gateways.router)
 api_router.include_router(hermes_runs.router)
 api_router.include_router(tasks.router)

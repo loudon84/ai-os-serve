@@ -15,6 +15,7 @@ from db.models import (  # noqa: F401
     AuditLog,
     LocalTask,
     Profile,
+    ProfileRoleSpec,
     SyncOutbox,
     TaskEvent,
     TeamTaskBinding,

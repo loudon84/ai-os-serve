@@ -1,14 +1,19 @@
 ﻿from __future__ import annotations
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.deps import get_gateway_supervisor, get_profile_service
+from api.deps import get_db_session, get_gateway_supervisor, get_profile_service
+from core.errors import NotFoundError
+from db.repositories.profile_repo import ProfileRepository
+from db.repositories.v12_repos import AuditRepository, TaskEventRepository
 from schemas.profile import (
     ProfileCreate,
     ProfileResponse,
     ProfileStatusResponse,
     ProfileUpdate,
 )
+from schemas.profile_events import ProfileEventResponse
 from services.gateway_supervisor import GatewaySupervisor
 from services.profile_service import ProfileService
 
@@ -79,3 +84,61 @@ async def profile_status(
     supervisor: GatewaySupervisor = Depends(get_gateway_supervisor),
 ) -> ProfileStatusResponse:
     return await supervisor.refresh_status(profile_id)
+
+
+@router.post("/{profile_id}/restart", response_model=ProfileStatusResponse)
+async def restart_profile(
+    profile_id: str,
+    supervisor: GatewaySupervisor = Depends(get_gateway_supervisor),
+) -> ProfileStatusResponse:
+    return await supervisor.restart_profile(profile_id)
+
+
+@router.get("/{profile_id}/health", response_model=ProfileStatusResponse)
+async def profile_health(
+    profile_id: str,
+    supervisor: GatewaySupervisor = Depends(get_gateway_supervisor),
+) -> ProfileStatusResponse:
+    return await supervisor.refresh_status(profile_id)
+
+
+@router.get("/{profile_id}/events", response_model=list[ProfileEventResponse])
+async def profile_events(
+    profile_id: str,
+    session: AsyncSession = Depends(get_db_session),
+    limit: int = Query(default=200, ge=1, le=500),
+) -> list[ProfileEventResponse]:
+    profile = await ProfileRepository(session).get_by_id(profile_id)
+    if profile is None:
+        raise NotFoundError(f"Profile {profile_id} not found")
+
+    task_events = await TaskEventRepository(session).list_by_profile_id(profile_id, limit=limit)
+    audit_logs = await AuditRepository(session).list_by_profile_id(profile_id, limit=limit)
+
+    merged: list[ProfileEventResponse] = []
+    for ev in task_events:
+        merged.append(
+            ProfileEventResponse(
+                id=ev.id,
+                source="task",
+                event_type=ev.event_type,
+                task_id=ev.task_id,
+                message=ev.message,
+                event_payload=ev.event_payload,
+                created_at=ev.created_at,
+            )
+        )
+    for row in audit_logs:
+        merged.append(
+            ProfileEventResponse(
+                id=row.id,
+                source="audit",
+                event_type=row.action,
+                task_id=row.task_id,
+                message=None,
+                event_payload=row.payload_json,
+                created_at=row.created_at,
+            )
+        )
+    merged.sort(key=lambda e: e.created_at, reverse=True)
+    return merged[:limit]
