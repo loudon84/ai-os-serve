@@ -1,18 +1,18 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ai_copilot_serve.api.deps import get_db_session, get_task_runtime, get_team_hub
-from ai_copilot_serve.core.enums import SyncBindingStatus
-from ai_copilot_serve.core.errors import NotFoundError
-from ai_copilot_serve.db.repositories.v12_repos import TeamTaskBindingRepository
-from ai_copilot_serve.integrations.team_hub.client import TeamHubClient
-from ai_copilot_serve.schemas.v12_tasks import TeamTaskBindingResponse
-from ai_copilot_serve.services.task_runtime import TaskRuntimeService
-from ai_copilot_serve.services.task_sync_service import TaskSyncService
+from api.deps import get_db_session, get_task_runtime, get_team_hub
+from core.enums import SyncBindingStatus
+from core.errors import NotFoundError
+from db.repositories.v12_repos import TeamTaskBindingRepository
+from integrations.team_hub.client import TeamHubClient
+from schemas.v12_tasks import TeamTaskBindingResponse
+from services.task_runtime import TaskRuntimeService
+from services.task_sync_service import TaskSyncService
 
 router = APIRouter(prefix="/team-tasks", tags=["team-tasks"])
 

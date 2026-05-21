@@ -1,11 +1,11 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from ai_copilot_serve.api.deps import get_task_routing_registry
-from ai_copilot_serve.core.task_routing import RoutingRule
-from ai_copilot_serve.schemas.v12_tasks import RoutingRuleOut, TaskRoutingPatch, TaskRoutingRulesResponse
-from ai_copilot_serve.services.task_routing_registry import TaskRoutingRegistry
+from api.deps import get_task_routing_registry
+from core.task_routing import RoutingRule
+from schemas.v12_tasks import RoutingRuleOut, TaskRoutingPatch, TaskRoutingRulesResponse
+from services.task_routing_registry import TaskRoutingRegistry
 
 router = APIRouter(tags=["task-routing"])
 

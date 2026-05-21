@@ -1,7 +1,7 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-from ai_copilot_serve.core.enums import TaskStatus
-from ai_copilot_serve.core.errors import StateMachineError
+from core.enums import TaskStatus
+from core.errors import StateMachineError
 
 _ALLOWED: dict[str, frozenset[str]] = {
     TaskStatus.REMOTE_ASSIGNED.value: frozenset({TaskStatus.LOCAL_CREATED.value}),

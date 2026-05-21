@@ -1,7 +1,7 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-from ai_copilot_serve.core.config import Settings
-from ai_copilot_serve.core.task_routing import RoutingRule, merge_routing
+from core.config import Settings
+from core.task_routing import RoutingRule, merge_routing
 
 
 class TaskRoutingRegistry:

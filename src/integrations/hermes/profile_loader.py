@@ -1,12 +1,12 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-from ai_copilot_serve.core.config import Settings
-from ai_copilot_serve.utils.paths import profile_config_path, profile_dir
+from core.config import Settings
+from utils.paths import profile_config_path, profile_dir
 
 
 def ensure_profile_directory(settings: Settings, name: str) -> Path:

@@ -1,12 +1,12 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
 import httpx
 
-from ai_copilot_serve.core.errors import TeamHubError
-from ai_copilot_serve.core.logging import get_logger
-from ai_copilot_serve.integrations.team_hub.dto import RemoteAssignmentDTO
+from core.errors import TeamHubError
+from core.logging import get_logger
+from integrations.team_hub.dto import RemoteAssignmentDTO
 
 logger = get_logger(__name__)
 

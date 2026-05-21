@@ -1,11 +1,11 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import fnmatch
 import json
 from pathlib import Path
 from typing import Any
 
-from ai_copilot_serve.core.errors import PolicyError
+from core.errors import PolicyError
 
 
 def _normalize_policy(policy_json: str | None) -> dict[str, Any]:

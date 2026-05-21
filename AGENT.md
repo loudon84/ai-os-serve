@@ -43,17 +43,19 @@ Backend:
 
 Desktop integration:
 
-- Electron Main Process talks to `ai-copilot-serve` over local HTTP.
-- Renderer talks to Main Process or local API through a typed client.
-- Preload API must expose only a minimal whitelist.
+- Electron Main Process spawns `copilot-serve` and exposes `window.copilotServe` (connection only).
+- Renderer calls `http://127.0.0.1:8765/api/v1/*` directly with `X-Copilot-Desktop-Token`.
+- V1.3: global/task SSE under `/api/v1/desktop/task-workbench/events/stream` and `/api/v1/tasks/{id}/events/stream`.
+- V1.3.1 hotfix: pure ASGI CORS (`build_asgi_app`), `COPILOT_REQUIRE_TOKEN=true` from desktop spawn, sync terminal `append_event`, dynamic SSE `Access-Control-Allow-Origin`.
 
 ## Expected repository layout
 
 ```text
-src/                                    # 主代码根目录 (包名 ai_copilot_serve)
+src/                                    # 扁平源码根（dev-mode-dirs / pythonpath）
   __init__.py
-  main.py                               # 入口: ai_copilot_serve.main:app
-  app.py                                 # FastAPI 应用工厂
+  main.py                               # 入口: main:app / ai-copilot-serve CLI
+  app.py                                # FastAPI 应用工厂
+  version.py
   core/
     config.py
     constants.py
@@ -184,7 +186,7 @@ Prefer `uv` if the repository uses it. Otherwise use the checked-in project mana
 ```bash
 uv sync
 uv run alembic upgrade head
-uv run uvicorn ai_copilot_serve.main:app --reload --host 127.0.0.1 --port 8765
+uv run uvicorn main:app --app-dir src --reload --host 127.0.0.1 --port 8765
 uv run pytest
 uv run ruff check .
 uv run mypy src

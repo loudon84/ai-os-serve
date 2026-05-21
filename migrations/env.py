@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import asyncio
 from logging.config import fileConfig
@@ -8,9 +8,9 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from ai_copilot_serve.core.config import get_settings
-from ai_copilot_serve.db.base import Base
-from ai_copilot_serve.db.models import (  # noqa: F401
+from core.config import get_settings
+from db.base import Base
+from db.models import (  # noqa: F401
     Approval,
     AuditLog,
     LocalTask,

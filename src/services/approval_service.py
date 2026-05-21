@@ -1,17 +1,17 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ai_copilot_serve.core.config import Settings
-from ai_copilot_serve.core.enums import ApprovalStatus, TaskStatus
-from ai_copilot_serve.core.errors import ConflictError, NotFoundError
-from ai_copilot_serve.db.models.task_related import Approval
-from ai_copilot_serve.db.repositories.v12_repos import ApprovalRepository, AuditRepository, TaskRepository
-from ai_copilot_serve.services.task_state_machine import assert_transition_allowed
-from ai_copilot_serve.services.task_sync_service import TaskSyncService
+from core.config import Settings
+from core.enums import ApprovalStatus, TaskStatus
+from core.errors import ConflictError, NotFoundError
+from db.models.task_related import Approval, TaskEvent
+from db.repositories.v12_repos import ApprovalRepository, AuditRepository, TaskEventRepository, TaskRepository
+from services.task_state_machine import assert_transition_allowed
+from services.task_sync_service import TaskSyncService
 
 
 class ApprovalService:
@@ -44,6 +44,22 @@ class ApprovalService:
             requested_by=requested_by,
         )
         r = await self._approvals.create(row)
+        await TaskEventRepository(self._session).create(
+            TaskEvent(
+                task_id=task_id,
+                event_type="approval_requested",
+                message=r.id,
+                event_payload=json.dumps(
+                    {
+                        "approval_id": r.id,
+                        "action_type": action_type,
+                        "risk_level": risk_level,
+                        "status": r.status,
+                    },
+                    default=str,
+                ),
+            )
+        )
         await self._audit.log(
             action="approval_requested", actor=requested_by, task_id=task_id, payload={"approval_id": r.id}
         )

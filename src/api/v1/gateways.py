@@ -1,11 +1,11 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
 
-from ai_copilot_serve.api.deps import get_gateway_supervisor, get_profile_service
-from ai_copilot_serve.schemas.gateway import GatewayHealthResponse, GatewayLogsResponse
-from ai_copilot_serve.services.gateway_supervisor import GatewaySupervisor
-from ai_copilot_serve.services.profile_service import ProfileService
+from api.deps import get_gateway_supervisor, get_profile_service
+from schemas.gateway import GatewayHealthResponse, GatewayLogsResponse
+from services.gateway_supervisor import GatewaySupervisor
+from services.profile_service import ProfileService
 
 router = APIRouter(prefix="/gateways", tags=["gateways"])
 

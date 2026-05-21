@@ -1,14 +1,14 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ai_copilot_serve.core.config import Settings
-from ai_copilot_serve.db.models.local_task import LocalTask
-from ai_copilot_serve.db.models.profile import Profile
-from ai_copilot_serve.db.models.task_related import Approval
-from ai_copilot_serve.integrations.team_hub.client import TeamHubClient
-from ai_copilot_serve.schemas.v12_tasks import TaskWorkbenchSummary
+from core.config import Settings
+from db.models.local_task import LocalTask
+from db.models.profile import Profile
+from db.models.task_related import Approval
+from integrations.team_hub.client import TeamHubClient
+from schemas.v12_tasks import TaskWorkbenchSummary
 
 
 def _count_map(rows: list[tuple[object, int]]) -> dict[str, int]:

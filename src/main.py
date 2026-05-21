@@ -1,9 +1,8 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-from ai_copilot_serve.app import create_app
-from ai_copilot_serve.core.config import get_settings
+from app import build_asgi_app
 
-app = create_app()
+app = build_asgi_app()
 
 
 def main() -> None:
@@ -11,7 +10,7 @@ def main() -> None:
 
     settings = get_settings()
     uvicorn.run(
-        "ai_copilot_serve.main:app",
+        "main:app",
         host=settings.copilot_host,
         port=settings.copilot_port,
         reload=False,

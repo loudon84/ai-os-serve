@@ -1,12 +1,12 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any
 
-from ai_copilot_serve.core.constants import GatewayStatus
-from ai_copilot_serve.core.errors import GatewayError
-from ai_copilot_serve.db.models.profile import Profile
-from ai_copilot_serve.integrations.hermes.client import HermesGatewayClient, extract_run_id
-from ai_copilot_serve.schemas.hermes import HermesRunCreate
+from core.constants import GatewayStatus
+from core.errors import GatewayError
+from db.models.profile import Profile
+from integrations.hermes.client import HermesGatewayClient, extract_run_id
+from schemas.hermes import HermesRunCreate
 
 
 class HermesGatewayService:

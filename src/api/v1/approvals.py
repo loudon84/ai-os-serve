@@ -1,13 +1,13 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from fastapi import APIRouter, Body, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ai_copilot_serve.api.deps import get_approval_service, get_db_session
-from ai_copilot_serve.core.errors import NotFoundError
-from ai_copilot_serve.db.repositories.v12_repos import ApprovalRepository
-from ai_copilot_serve.schemas.v12_tasks import ApprovalApproveBody, ApprovalRejectBody, ApprovalResponse
-from ai_copilot_serve.services.approval_service import ApprovalService
+from api.deps import get_approval_service, get_db_session
+from core.errors import NotFoundError
+from db.repositories.v12_repos import ApprovalRepository
+from schemas.v12_tasks import ApprovalApproveBody, ApprovalRejectBody, ApprovalResponse
+from services.approval_service import ApprovalService
 
 router = APIRouter(prefix="/approvals", tags=["approvals"])
 

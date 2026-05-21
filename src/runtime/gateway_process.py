@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import asyncio
 import shlex
@@ -6,8 +6,8 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ai_copilot_serve.core.config import Settings
-from ai_copilot_serve.core.logging import get_logger
+from core.config import Settings
+from core.logging import get_logger
 
 logger = get_logger(__name__)
 

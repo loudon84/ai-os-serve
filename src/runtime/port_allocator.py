@@ -1,6 +1,6 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-from ai_copilot_serve.core.config import Settings
+from core.config import Settings
 
 
 def allocate_port(settings: Settings, requested: int | None) -> int:

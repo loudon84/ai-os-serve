@@ -1,9 +1,9 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from fastapi import APIRouter
 
-from ai_copilot_serve import __version__
-from ai_copilot_serve.schemas.system import HealthResponse
+from version import __version__
+from schemas.system import HealthResponse
 
 router = APIRouter(tags=["system"])
 

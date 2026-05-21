@@ -1,7 +1,7 @@
 ---
 description: Core project rules for ai-copilot-serve, the local control-plane service for ai-os-desktop and Hermes Gateway profiles.
 globs:
-  - "src/ai_copilot_serve/**/*.py"
+  - "src/**/*.py"
   - "tests/**/*.py"
   - "docs/**/*.md"
 alwaysApply: true

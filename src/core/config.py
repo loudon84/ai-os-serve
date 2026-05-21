@@ -5,7 +5,22 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-_PACKAGE_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+
+def _resolve_project_root() -> Path:
+    """copilot-serve 仓库根目录（含 pyproject.toml）。"""
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        if (parent / "pyproject.toml").is_file():
+            return parent
+    # src/core/config.py -> copilot-serve
+    return here.parents[2]
+
+
+_PACKAGE_ROOT = _resolve_project_root()
+
+# 与 ai-os-desktop 用户数据目录一致；可通过 SQLITE_PATH 覆盖
+_DEFAULT_SQLITE_PATH = "~/.hermes/desktop/sqlite.db"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -16,7 +31,7 @@ class Settings(BaseSettings):
 
     copilot_host: str = Field(default="127.0.0.1", alias="COPILOT_HOST")
     copilot_port: int = Field(default=8765, alias="COPILOT_PORT")
-    sqlite_path: str = Field(default="./data/copilot.db", alias="SQLITE_PATH")
+    sqlite_path: str = Field(default=_DEFAULT_SQLITE_PATH, alias="SQLITE_PATH")
     hermes_home: str = Field(default="~/.hermes", alias="HERMES_HOME")
     default_gateway_port: int = Field(default=8642, alias="DEFAULT_GATEWAY_PORT")
     hermes_gateway_command: str = Field(default="hermes gateway", alias="HERMES_GATEWAY_COMMAND")
@@ -42,6 +57,14 @@ class Settings(BaseSettings):
         default="",
         alias="TASK_ROUTING_JSON",
         description='Optional JSON: {"coding_task":{"profile_type":"coding","require_approval":true}}',
+    )
+
+    copilot_desktop_token: str = Field(default="", alias="COPILOT_DESKTOP_TOKEN")
+    copilot_require_token: bool = Field(default=False, alias="COPILOT_REQUIRE_TOKEN")
+    cors_allow_origins: str = Field(
+        default="http://127.0.0.1,http://localhost",
+        alias="CORS_ALLOW_ORIGINS",
+        description="Comma-separated origins for copilot-desktop renderer",
     )
 
     @property

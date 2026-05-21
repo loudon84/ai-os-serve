@@ -1,8 +1,8 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from pydantic import BaseModel
 
-from ai_copilot_serve.core.enums import TaskType
+from core.enums import TaskType
 
 
 class RoutingRule(BaseModel):

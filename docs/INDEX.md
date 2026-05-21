@@ -45,9 +45,9 @@
 
 ```text
 ai-os-api/
-├── src/                                    # 主代码根目录 (包名 ai_copilot_serve)
+├── src/                                    # 扁平源码根 (pythonpath / --app-dir src)
 │   ├── __init__.py                         #   包声明
-│   ├── main.py                             #   入口: ai_copilot_serve.main:app
+│   ├── main.py                             #   入口: main:app
 │   ├── app.py                              #   FastAPI 应用工厂 create_app()
 │   ├── api/
 │   │   ├── deps.py                         #     依赖注入

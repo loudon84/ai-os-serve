@@ -1,12 +1,12 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
-from ai_copilot_serve.core.config import Settings
-from ai_copilot_serve.db.base import Base
+from core.config import Settings
+from db.base import Base
 
 
 def create_engine(settings: Settings) -> AsyncEngine:
@@ -28,6 +28,7 @@ def create_sessionmaker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]
 
 
 async def init_db(engine: AsyncEngine) -> None:
+    """仅用于测试：生产 schema 请使用 ``alembic upgrade head``。"""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

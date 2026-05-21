@@ -1,11 +1,11 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any
 
 import httpx
 
-from ai_copilot_serve.core.errors import GatewayError, HermesClientError
-from ai_copilot_serve.core.logging import get_logger
+from core.errors import GatewayError, HermesClientError
+from core.logging import get_logger
 
 logger = get_logger(__name__)
 

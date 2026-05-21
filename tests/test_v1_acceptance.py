@@ -23,7 +23,7 @@ async def test_health(app_client) -> None:
 
 @pytest.mark.asyncio
 async def test_profile_list_and_create(app_client) -> None:
-    client, _, settings, _ = app_client
+    client, _, settings, _, _ = app_client
     resp = await client.post(
         "/api/v1/profiles",
         json={"name": "default", "type": "default", "gateway_port": settings.default_gateway_port},
@@ -39,7 +39,7 @@ async def test_profile_list_and_create(app_client) -> None:
 
 @pytest.mark.asyncio
 async def test_start_profile_models_and_run(app_client) -> None:
-    client, supervisor, settings, _ = app_client
+    client, supervisor, settings, _, _ = app_client
     create = await client.post(
         "/api/v1/profiles",
         json={"name": "default", "gateway_port": settings.default_gateway_port},
@@ -75,7 +75,7 @@ async def test_start_profile_models_and_run(app_client) -> None:
 
 @pytest.mark.asyncio
 async def test_gateway_crash_detected(app_client) -> None:
-    client, supervisor, settings, _ = app_client
+    client, supervisor, settings, _, _ = app_client
     create = await client.post(
         "/api/v1/profiles",
         json={"name": "crash-test", "gateway_port": settings.default_gateway_port + 1},
@@ -101,7 +101,7 @@ async def test_gateway_crash_detected(app_client) -> None:
 
 @pytest.mark.asyncio
 async def test_gateway_logs(app_client) -> None:
-    client, supervisor, settings, _ = app_client
+    client, supervisor, settings, _, _ = app_client
     create = await client.post(
         "/api/v1/profiles",
         json={"name": "logs-test", "gateway_port": settings.default_gateway_port + 2},
@@ -118,7 +118,7 @@ async def test_gateway_logs(app_client) -> None:
 
 @pytest.mark.asyncio
 async def test_gateway_health_endpoint(app_client) -> None:
-    client, supervisor, settings, _ = app_client
+    client, supervisor, settings, _, _ = app_client
     create = await client.post(
         "/api/v1/profiles",
         json={"name": "health-test", "gateway_port": settings.default_gateway_port + 3},

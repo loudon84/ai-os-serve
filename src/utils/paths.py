@@ -1,8 +1,8 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from pathlib import Path
 
-from ai_copilot_serve.core.config import Settings
+from core.config import Settings
 
 
 def profile_dir(settings: Settings, name: str) -> Path:

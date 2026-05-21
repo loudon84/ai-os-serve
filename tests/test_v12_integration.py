@@ -1,4 +1,4 @@
-"""v1.2 integration flows (subset of PRD section 16): Hub pull, local task, Hermes run, approval gate, workbench."""
+﻿"""v1.2 integration flows (subset of PRD section 16): Hub pull, local task, Hermes run, approval gate, workbench."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from ai_copilot_serve.integrations.team_hub.dto import RemoteAssignmentDTO
+from integrations.team_hub.dto import RemoteAssignmentDTO
 
 _ROOT = Path(__file__).resolve().parent.parent
 _MOCK_SCRIPT = _ROOT / "scripts" / "mock_hermes_gateway.py"
@@ -19,7 +19,7 @@ def _mock_cmd(port: int) -> list[str]:
 
 @pytest.mark.asyncio
 async def test_v12_team_pull_run_and_workbench(app_client) -> None:
-    client, supervisor, settings, stub = app_client
+    client, supervisor, settings, stub, _ = app_client
 
     create_profile = await client.post(
         "/api/v1/profiles",
@@ -76,7 +76,7 @@ async def test_v12_team_pull_run_and_workbench(app_client) -> None:
 
 @pytest.mark.asyncio
 async def test_v12_approval_gate_then_run(app_client) -> None:
-    client, supervisor, settings, stub = app_client
+    client, supervisor, settings, stub, _ = app_client
 
     create_profile = await client.post(
         "/api/v1/profiles",

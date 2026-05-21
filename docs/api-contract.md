@@ -2,7 +2,7 @@
 
 Base URL: `http://127.0.0.1:8765` (configurable via `COPILOT_HOST` / `COPILOT_PORT`)
 
-> **代码根目录**: `src/` (包名 `ai_copilot_serve`)。路由端点定义在 `src/api/v1/`，业务逻辑在 `src/services/`，数据模型在 `src/db/models/`，Pydantic schema 在 `src/schemas/`。
+> **代码根目录**: 扁平 `src/`（`api/v1/`、`services/`、`db/models/`、`schemas/`）。启动：`uvicorn main:app`。SQLite 默认 `~/.hermes/desktop/sqlite.db`；建表仅用 Alembic。
 
 ## System
 
@@ -166,6 +166,15 @@ The service uses a **port-style** `TeamHubClient` (`poll_assignments`, `claim_as
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/v1/desktop/task-workbench/summary` | Counts: profiles / tasks / approvals by status + stub Hub counters |
+| GET | `/api/v1/desktop/task-workbench/events/stream` | **SSE** global workbench events: `task_created` / `task_updated` / `approval_created` / `ping` (10s); supports `Last-Event-ID` |
+
+Task timeline SSE (`GET /api/v1/tasks/{task_id}/events/stream`): `text/event-stream` with full `event_payload`, `run_id`, `Last-Event-ID`, idle `ping`, and stream closes **30s** after task reaches `completed` / `failed` / `cancelled`.
+
+### Desktop auth (optional)
+
+When `COPILOT_REQUIRE_TOKEN=true`, send header `X-Copilot-Desktop-Token: <COPILOT_DESKTOP_TOKEN>` on all `/api/v1/*` except `/api/v1/health`. Electron Main injects the token when spawning uvicorn; Renderer reads it via `window.copilotServe.getConnection()`.
+
+CORS: SSE responses include `Access-Control-Allow-Origin: http://127.0.0.1` for local Portal/Desktop fetch.
 
 ## V1.0 acceptance checklist
 

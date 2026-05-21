@@ -1,10 +1,10 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from ai_copilot_serve.core.constants import GatewayStatus, ProfileType
+from core.constants import GatewayStatus, ProfileType
 
 
 class ProfileCreate(BaseModel):

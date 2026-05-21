@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
@@ -6,28 +6,28 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ai_copilot_serve.core.config import Settings
-from ai_copilot_serve.core.constants import GatewayStatus
-from ai_copilot_serve.core.enums import SyncBindingStatus, TaskSource, TaskStatus
-from ai_copilot_serve.core.errors import ConflictError, GatewayError, HermesClientError, NotFoundError
-from ai_copilot_serve.db.models.local_task import LocalTask
-from ai_copilot_serve.db.models.task_related import TaskEvent, TeamTaskBinding
-from ai_copilot_serve.db.repositories.profile_repo import ProfileRepository
-from ai_copilot_serve.db.repositories.v12_repos import (
+from core.config import Settings
+from core.constants import GatewayStatus
+from core.enums import SyncBindingStatus, TaskSource, TaskStatus
+from core.errors import ConflictError, GatewayError, HermesClientError, NotFoundError
+from db.models.local_task import LocalTask
+from db.models.task_related import TaskEvent, TeamTaskBinding
+from db.repositories.profile_repo import ProfileRepository
+from db.repositories.v12_repos import (
     AuditRepository,
     TaskEventRepository,
     TaskRepository,
     TeamTaskBindingRepository,
 )
-from ai_copilot_serve.integrations.hermes.client import HermesGatewayClient, extract_run_id
-from ai_copilot_serve.integrations.team_hub.client import TeamHubClient
-from ai_copilot_serve.integrations.team_hub.dto import RemoteAssignmentDTO
-from ai_copilot_serve.services.approval_service import ApprovalService
-from ai_copilot_serve.services.gateway_supervisor import GatewaySupervisor
-from ai_copilot_serve.services.task_routing_registry import TaskRoutingRegistry
-from ai_copilot_serve.services.task_state_machine import assert_transition_allowed
-from ai_copilot_serve.services.task_sync_service import TaskSyncService
-from ai_copilot_serve.services.workspace_guard import WorkspaceGuard
+from integrations.hermes.client import HermesGatewayClient, extract_run_id
+from integrations.team_hub.client import TeamHubClient
+from integrations.team_hub.dto import RemoteAssignmentDTO
+from services.approval_service import ApprovalService
+from services.gateway_supervisor import GatewaySupervisor
+from services.task_routing_registry import TaskRoutingRegistry
+from services.task_state_machine import assert_transition_allowed
+from services.task_sync_service import TaskSyncService
+from services.workspace_guard import WorkspaceGuard
 
 
 class TaskRuntimeService:
@@ -84,6 +84,12 @@ class TaskRuntimeService:
             payload_json=json.dumps(payload or {}, default=str),
         )
         await self._tasks.create(task)
+        await self.append_event(
+            task.id,
+            "task_created",
+            message="local",
+            payload={"source": TaskSource.LOCAL.value, "status": task.status, "task_type": task_type},
+        )
         await self._audit.log(action="task_created_local", actor=None, task_id=task.id, payload={"source": "local"})
         await self.sync_service.enqueue(
             target_type="local_task",
@@ -135,6 +141,17 @@ class TaskRuntimeService:
         )
         await self._bindings.create(binding)
 
+        await self.append_event(
+            task.id,
+            "task_ingested",
+            message="team_hub",
+            payload={
+                "remote_task_id": dto.remote_task_id,
+                "assignment_id": dto.assignment_id,
+                "status": task.status,
+            },
+        )
+
         await self._audit.log(
             action="task_ingested",
             actor=self._settings.agent_id,
@@ -159,7 +176,7 @@ class TaskRuntimeService:
         routing_map = self._routing.all_rules()
         rule = routing_map.get(task.task_type)
         if rule is None:
-            from ai_copilot_serve.core.task_routing import RoutingRule
+            from core.task_routing import RoutingRule
 
             rule = RoutingRule(profile_type="default", require_approval=False)
         profile = await self._profiles.get_first_by_type(rule.profile_type if rule else "default")  # type: ignore[union-attr]
@@ -168,7 +185,12 @@ class TaskRuntimeService:
         if rule and rule.require_approval:
             self._transition(task, TaskStatus.WAITING_APPROVAL)
             await self._tasks.save(task)
-            await self.append_event(task_id, "routing", message="waiting_approval_required")
+            await self.append_event(
+                task_id,
+                "routing",
+                message="waiting_approval_required",
+                payload={"status": task.status, "require_approval": True},
+            )
             approvals = ApprovalService(self._session, self._settings)
             await approvals.request_approval(
                 task_id,
@@ -180,7 +202,12 @@ class TaskRuntimeService:
         else:
             self._transition(task, TaskStatus.APPROVED)
             await self._tasks.save(task)
-            await self.append_event(task_id, "routing", message="approved_no_gate")
+            await self.append_event(
+                task_id,
+                "routing",
+                message="approved_no_gate",
+                payload={"status": task.status, "require_approval": False},
+            )
         return task
 
     async def bind_profile(self, task_id: str, profile_id: str) -> LocalTask:
@@ -198,7 +225,7 @@ class TaskRuntimeService:
     async def _ensure_workspace_allowed(self, task: LocalTask) -> None:
         if not task.workspace_id:
             return
-        from ai_copilot_serve.db.repositories.v12_repos import WorkspaceRepository
+        from db.repositories.v12_repos import WorkspaceRepository
 
         wrepo = WorkspaceRepository(self._session)
         ws = await wrepo.get(task.workspace_id)
@@ -244,6 +271,12 @@ class TaskRuntimeService:
         self._transition(task, TaskStatus.RUNNING)
         task.started_at = datetime.now(UTC)
         await self._tasks.save(task)
+        await self.append_event(
+            task_id,
+            "task_running",
+            message="execute_run",
+            payload={"status": task.status, "profile_id": task.target_profile_id},
+        )
 
         payload: dict[str, Any] = {}
         if task.payload_json:
@@ -262,6 +295,12 @@ class TaskRuntimeService:
             task.error_message = str(e.message)
             task.finished_at = datetime.now(UTC)
             await self._tasks.save(task)
+            await self.append_event(
+                task_id,
+                "task_failed",
+                message=str(e.message),
+                payload={"status": task.status, "error": str(e.message)},
+            )
             await self.sync_service.enqueue(
                 target_type="local_task",
                 target_id=task.id,
@@ -273,7 +312,13 @@ class TaskRuntimeService:
         run_id = extract_run_id(resp)
         task.hermes_run_id = run_id
         await self._tasks.save(task)
-        await self.append_event(task.id, "hermes_run_created", message=run_id, run_id=run_id)
+        await self.append_event(
+            task.id,
+            "hermes_run_created",
+            message=run_id,
+            run_id=run_id,
+            payload={"run_id": run_id, "status": task.status},
+        )
 
         raw_status = resp.get("status") if isinstance(resp.get("status"), str) else None
         if raw_status in {"completed", "success", "done"}:
@@ -281,6 +326,13 @@ class TaskRuntimeService:
             task.result_json = json.dumps(resp)
             task.finished_at = datetime.now(UTC)
             await self._tasks.save(task)
+            await self.append_event(
+                task.id,
+                "task_completed",
+                message="execute_run_sync",
+                run_id=run_id,
+                payload={"status": task.status, "hermes_run_id": run_id},
+            )
             await self.sync_service.enqueue(
                 target_type="local_task",
                 target_id=task.id,
@@ -288,10 +340,18 @@ class TaskRuntimeService:
                 payload={"task_id": task.id, "hermes_run_id": run_id},
             )
         elif raw_status in {"failed", "error"}:
+            err_msg = str(resp.get("error", "Hermes reported failure"))
             self._transition(task, TaskStatus.FAILED)
-            task.error_message = str(resp.get("error", "Hermes reported failure"))
+            task.error_message = err_msg
             task.finished_at = datetime.now(UTC)
             await self._tasks.save(task)
+            await self.append_event(
+                task.id,
+                "task_failed",
+                message=err_msg,
+                run_id=run_id,
+                payload={"status": task.status, "error": err_msg, "hermes_run_id": run_id},
+            )
 
         else:
             await self.sync_service.enqueue(
@@ -312,6 +372,13 @@ class TaskRuntimeService:
             task.result_json = result_json
         task.finished_at = datetime.now(UTC)
         await self._tasks.save(task)
+        await self.append_event(
+            task_id,
+            "task_completed",
+            message="mark_completed",
+            run_id=task.hermes_run_id,
+            payload={"status": task.status},
+        )
         await self.sync_service.enqueue(
             target_type="local_task",
             target_id=task.id,
@@ -328,6 +395,13 @@ class TaskRuntimeService:
         task.error_message = message
         task.finished_at = datetime.now(UTC)
         await self._tasks.save(task)
+        await self.append_event(
+            task_id,
+            "task_failed",
+            message=message,
+            run_id=task.hermes_run_id,
+            payload={"status": task.status, "error": message},
+        )
         await self.sync_service.enqueue(
             target_type="local_task",
             target_id=task.id,
@@ -350,6 +424,13 @@ class TaskRuntimeService:
         self._transition(task, TaskStatus.CANCELLED)
         task.finished_at = datetime.now(UTC)
         await self._tasks.save(task)
+        await self.append_event(
+            task_id,
+            "task_cancelled",
+            message="cancel_task",
+            run_id=task.hermes_run_id,
+            payload={"status": task.status},
+        )
         await self.sync_service.enqueue(
             target_type="local_task",
             target_id=task.id,

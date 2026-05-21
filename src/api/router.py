@@ -1,8 +1,9 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from ai_copilot_serve.api.v1 import (
+from api.deps import verify_desktop_token
+from api.v1 import (
     approvals,
     desktop_workbench,
     gateways,
@@ -16,7 +17,7 @@ from ai_copilot_serve.api.v1 import (
     workspaces,
 )
 
-api_router = APIRouter(prefix="/api/v1")
+api_router = APIRouter(prefix="/api/v1", dependencies=[Depends(verify_desktop_token)])
 api_router.include_router(health.router)
 api_router.include_router(system.router)
 api_router.include_router(profiles.router)

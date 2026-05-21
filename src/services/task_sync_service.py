@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import hashlib
 import json
@@ -6,9 +6,9 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ai_copilot_serve.core.enums import OutboxStatus
-from ai_copilot_serve.db.models.task_related import SyncOutbox
-from ai_copilot_serve.db.repositories.v12_repos import SyncOutboxRepository
+from core.enums import OutboxStatus
+from db.models.task_related import SyncOutbox
+from db.repositories.v12_repos import SyncOutboxRepository
 
 
 class TaskSyncService:

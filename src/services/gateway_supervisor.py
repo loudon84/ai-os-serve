@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import asyncio
 import time
@@ -6,16 +6,16 @@ import time
 import psutil
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from ai_copilot_serve.core.config import Settings
-from ai_copilot_serve.core.constants import GatewayStatus
-from ai_copilot_serve.core.errors import ConflictError, GatewayError
-from ai_copilot_serve.core.logging import get_logger
-from ai_copilot_serve.db.models.profile import Profile
-from ai_copilot_serve.db.repositories.profile_repo import ProfileRepository
-from ai_copilot_serve.integrations.hermes.client import HermesGatewayClient
-from ai_copilot_serve.runtime.gateway_process import GatewayProcessManager
-from ai_copilot_serve.schemas.profile import ProfileStatusResponse
-from ai_copilot_serve.services.profile_service import ProfileService
+from core.config import Settings
+from core.constants import GatewayStatus
+from core.errors import ConflictError, GatewayError
+from core.logging import get_logger
+from db.models.profile import Profile
+from db.repositories.profile_repo import ProfileRepository
+from integrations.hermes.client import HermesGatewayClient
+from runtime.gateway_process import GatewayProcessManager
+from schemas.profile import ProfileStatusResponse
+from services.profile_service import ProfileService
 
 logger = get_logger(__name__)
 

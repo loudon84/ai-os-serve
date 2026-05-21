@@ -1,28 +1,31 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-import asyncio
-import json
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from ai_copilot_serve.api.deps import (
+from api.deps import (
+    get_app_settings,
     get_approval_service,
     get_db_session,
     get_session_maker,
     get_task_runtime,
 )
-from ai_copilot_serve.core.errors import NotFoundError
-from ai_copilot_serve.db.repositories.v12_repos import TaskEventRepository
-from ai_copilot_serve.schemas.v12_tasks import (
+from core.config import Settings
+from core.errors import NotFoundError
+from db.repositories.v12_repos import TaskEventRepository
+from services.sse_helpers import stream_sse_headers
+from services.workbench_event_stream import iter_task_timeline_events, resolve_last_event_id
+from schemas.v12_tasks import (
     BindProfileBody,
     LocalTaskCreate,
     LocalTaskResponse,
     TaskEventResponse,
 )
-from ai_copilot_serve.services.approval_service import ApprovalService
-from ai_copilot_serve.services.task_runtime import TaskRuntimeService
+from services.approval_service import ApprovalService
+from services.task_runtime import TaskRuntimeService
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -113,34 +116,23 @@ async def request_approval_ep(
 async def stream_events(
     task_id: str,
     request: Request,
+    settings: Annotated[Settings, Depends(get_app_settings)],
     session_maker: async_sessionmaker[AsyncSession] = Depends(get_session_maker),
 ) -> StreamingResponse:
-    async def gen() -> object:
-        last_n = 0
-        try:
-            while True:
-                if await request.is_disconnected():
-                    break
-                session = session_maker()
-                try:
-                    evs = await TaskEventRepository(session).list_by_task(task_id, limit=500)
-                    if len(evs) > last_n:
-                        for e in evs[last_n:]:
-                            block = json.dumps(
-                                {
-                                    "id": e.id,
-                                    "event_type": e.event_type,
-                                    "message": e.message,
-                                    "created_at": e.created_at.isoformat(),
-                                },
-                                default=str,
-                            )
-                            yield f"data: {block}\n\n"
-                        last_n = len(evs)
-                finally:
-                    await session.close()
-                await asyncio.sleep(1)
-        except asyncio.CancelledError:
-            raise
+    last_id = resolve_last_event_id(request)
 
-    return StreamingResponse(gen(), media_type="text/event-stream")
+    async def gen() -> object:
+        async for chunk in iter_task_timeline_events(
+            request,
+            session_maker,
+            task_id=task_id,
+            last_event_id=last_id,
+        ):
+            yield chunk
+
+    allowed = [o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()]
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers=stream_sse_headers(origin=request.headers.get("origin"), allowed_origins=allowed or None),
+    )

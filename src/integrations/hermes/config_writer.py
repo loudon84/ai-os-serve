@@ -1,9 +1,9 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any
 
-from ai_copilot_serve.core.config import Settings
-from ai_copilot_serve.integrations.hermes.profile_loader import load_profile_config, write_profile_config
+from core.config import Settings
+from integrations.hermes.profile_loader import load_profile_config, write_profile_config
 
 
 def build_default_config(settings: Settings, name: str, gateway_port: int) -> dict[str, Any]:

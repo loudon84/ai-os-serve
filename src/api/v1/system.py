@@ -1,11 +1,11 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from ai_copilot_serve import __version__
-from ai_copilot_serve.api.deps import get_app_settings
-from ai_copilot_serve.core.config import Settings
-from ai_copilot_serve.schemas.system import SystemInfoResponse
+from version import __version__
+from api.deps import get_app_settings
+from core.config import Settings
+from schemas.system import SystemInfoResponse
 
 router = APIRouter(prefix="/system", tags=["system"])
 

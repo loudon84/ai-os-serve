@@ -1,16 +1,16 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from ai_copilot_serve.api.deps import get_gateway_supervisor, get_hermes_service
-from ai_copilot_serve.schemas.hermes import (
+from api.deps import get_gateway_supervisor, get_hermes_service
+from schemas.hermes import (
     HermesModelsResponse,
     HermesRunCreate,
     HermesRunEventsResponse,
     HermesRunResponse,
 )
-from ai_copilot_serve.services.gateway_supervisor import GatewaySupervisor
-from ai_copilot_serve.services.hermes_gateway_client import HermesGatewayService
+from services.gateway_supervisor import GatewaySupervisor
+from services.hermes_gateway_client import HermesGatewayService
 
 router = APIRouter(prefix="/profiles/{profile_id}", tags=["hermes"])
 

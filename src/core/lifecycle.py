@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
@@ -6,13 +6,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from ai_copilot_serve.core.config import get_settings
-from ai_copilot_serve.core.logging import configure_logging, get_logger
-from ai_copilot_serve.db.session import create_engine, create_sessionmaker, init_db
-from ai_copilot_serve.integrations.team_hub.client import HttpTeamHubClient, StubTeamHubClient
-from ai_copilot_serve.services.gateway_supervisor import GatewaySupervisor
-from ai_copilot_serve.services.task_routing_registry import TaskRoutingRegistry
-from ai_copilot_serve.workers.v12_workers import RunEventWorker, SyncOutboxWorker, TaskListenerWorker
+from core.config import get_settings
+from core.logging import configure_logging, get_logger
+from db.session import create_engine, create_sessionmaker
+from integrations.team_hub.client import HttpTeamHubClient, StubTeamHubClient
+from services.gateway_supervisor import GatewaySupervisor
+from services.task_routing_registry import TaskRoutingRegistry
+from workers.v12_workers import RunEventWorker, SyncOutboxWorker, TaskListenerWorker
 
 logger = get_logger(__name__)
 
@@ -33,13 +33,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
     settings = get_settings()
 
+    # 生产环境仅通过 Alembic 建表/迁移；测试在 conftest 中调用 init_db(create_all)
     injected_engine = getattr(app.state, "_test_engine", None)
-    if injected_engine is not None:
-        engine = injected_engine
-        await init_db(engine)
-    else:
-        engine = create_engine(settings)
-        await init_db(engine)
+    engine = injected_engine if injected_engine is not None else create_engine(settings)
 
     session_maker = create_sessionmaker(engine)
 

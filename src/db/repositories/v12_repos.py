@@ -1,13 +1,13 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ai_copilot_serve.db.models.local_task import LocalTask
-from ai_copilot_serve.db.models.task_related import Approval, AuditLog, SyncOutbox, TaskEvent, TeamTaskBinding
-from ai_copilot_serve.db.models.workspace_db import Workspace
+from db.models.local_task import LocalTask
+from db.models.task_related import Approval, AuditLog, SyncOutbox, TaskEvent, TeamTaskBinding
+from db.models.workspace_db import Workspace
 
 
 class TaskRepository:
@@ -43,6 +43,43 @@ class TaskEventRepository:
         result = await self._s.execute(
             select(TaskEvent).where(TaskEvent.task_id == task_id).order_by(TaskEvent.created_at).limit(limit)
         )
+        return list(result.scalars().all())
+
+    async def list_by_task_after(
+        self,
+        task_id: str,
+        *,
+        after_id: str | None = None,
+        limit: int = 500,
+    ) -> list[TaskEvent]:
+        stmt = select(TaskEvent).where(TaskEvent.task_id == task_id)
+        if after_id:
+            ref = await self._s.get(TaskEvent, after_id)
+            if ref is not None:
+                stmt = stmt.where(
+                    (TaskEvent.created_at > ref.created_at)
+                    | ((TaskEvent.created_at == ref.created_at) & (TaskEvent.id > ref.id))
+                )
+        stmt = stmt.order_by(TaskEvent.created_at, TaskEvent.id).limit(limit)
+        result = await self._s.execute(stmt)
+        return list(result.scalars().all())
+
+    async def list_recent_global_events(
+        self,
+        *,
+        after_id: str | None = None,
+        limit: int = 200,
+    ) -> list[TaskEvent]:
+        stmt = select(TaskEvent)
+        if after_id:
+            ref = await self._s.get(TaskEvent, after_id)
+            if ref is not None:
+                stmt = stmt.where(
+                    (TaskEvent.created_at > ref.created_at)
+                    | ((TaskEvent.created_at == ref.created_at) & (TaskEvent.id > ref.id))
+                )
+        stmt = stmt.order_by(TaskEvent.created_at, TaskEvent.id).limit(limit)
+        result = await self._s.execute(stmt)
         return list(result.scalars().all())
 
     async def create(self, event: TaskEvent) -> TaskEvent:

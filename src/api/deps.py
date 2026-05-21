@@ -1,19 +1,19 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from typing import Annotated
 
-from fastapi import Depends, Request
+from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from ai_copilot_serve.core.config import Settings, get_settings
-from ai_copilot_serve.db.repositories.profile_repo import ProfileRepository
-from ai_copilot_serve.integrations.team_hub.client import TeamHubClient
-from ai_copilot_serve.services.gateway_supervisor import GatewaySupervisor
-from ai_copilot_serve.services.hermes_gateway_client import HermesGatewayService
-from ai_copilot_serve.services.profile_service import ProfileService
-from ai_copilot_serve.services.task_routing_registry import TaskRoutingRegistry
-from ai_copilot_serve.services.task_runtime import TaskRuntimeService
+from core.config import Settings, get_settings
+from db.repositories.profile_repo import ProfileRepository
+from integrations.team_hub.client import TeamHubClient
+from services.gateway_supervisor import GatewaySupervisor
+from services.hermes_gateway_client import HermesGatewayService
+from services.profile_service import ProfileService
+from services.task_routing_registry import TaskRoutingRegistry
+from services.task_runtime import TaskRuntimeService
 
 
 def get_app_settings() -> Settings:
@@ -74,6 +74,22 @@ def get_approval_service(
     db: Annotated[AsyncSession, Depends(get_db_session)],
     settings: Annotated[Settings, Depends(get_app_settings)],
 ):
-    from ai_copilot_serve.services.approval_service import ApprovalService
+    from services.approval_service import ApprovalService
 
     return ApprovalService(db, settings)
+
+
+def verify_desktop_token(
+    request: Request,
+    settings: Annotated[Settings, Depends(get_app_settings)],
+    token: Annotated[str | None, Header(alias="X-Copilot-Desktop-Token")] = None,
+) -> None:
+    if request.url.path in {"/api/v1/health", "/docs", "/openapi.json", "/redoc"}:
+        return
+    if not settings.copilot_require_token:
+        return
+    expected = settings.copilot_desktop_token
+    if not expected:
+        return
+    if token != expected:
+        raise HTTPException(status_code=401, detail="Invalid or missing desktop token")

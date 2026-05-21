@@ -1,13 +1,15 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from ai_copilot_serve import __version__
-from ai_copilot_serve.api.router import api_router
-from ai_copilot_serve.core.errors import CopilotError
-from ai_copilot_serve.core.lifecycle import lifespan
-from ai_copilot_serve.schemas.common import ErrorResponse
+from version import __version__
+from api.middleware.cors_asgi import PureAsgiCorsMiddleware
+from api.router import api_router
+from core.config import get_settings
+from core.errors import CopilotError
+from core.lifecycle import lifespan
+from schemas.common import ErrorResponse
 
 
 def create_app() -> FastAPI:
@@ -37,3 +39,13 @@ def create_app() -> FastAPI:
 
     app.include_router(api_router)
     return app
+
+
+def build_asgi_app(fastapi_app: FastAPI | None = None) -> PureAsgiCorsMiddleware:
+    """Wrap FastAPI with pure ASGI CORS (safe for SSE; used by uvicorn entry)."""
+    inner = fastapi_app if fastapi_app is not None else create_app()
+    settings = get_settings()
+    origins = [o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()]
+    if not origins:
+        origins = ["http://127.0.0.1", "http://localhost"]
+    return PureAsgiCorsMiddleware(inner, allow_origins=origins)

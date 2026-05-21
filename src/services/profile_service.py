@@ -1,14 +1,14 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-from ai_copilot_serve.core.config import Settings
-from ai_copilot_serve.core.constants import GatewayStatus
-from ai_copilot_serve.core.errors import ConflictError, NotFoundError
-from ai_copilot_serve.db.models.profile import Profile
-from ai_copilot_serve.db.repositories.profile_repo import ProfileRepository
-from ai_copilot_serve.integrations.hermes.config_writer import sync_profile_config
-from ai_copilot_serve.runtime.port_allocator import allocate_port
-from ai_copilot_serve.schemas.profile import ProfileCreate, ProfileUpdate
-from ai_copilot_serve.utils.paths import profile_dir
+from core.config import Settings
+from core.constants import GatewayStatus
+from core.errors import ConflictError, NotFoundError
+from db.models.profile import Profile
+from db.repositories.profile_repo import ProfileRepository
+from integrations.hermes.config_writer import sync_profile_config
+from runtime.port_allocator import allocate_port
+from schemas.profile import ProfileCreate, ProfileUpdate
+from utils.paths import profile_dir
 
 
 class ProfileService:

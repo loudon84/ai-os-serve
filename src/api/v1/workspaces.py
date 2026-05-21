@@ -1,20 +1,20 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ai_copilot_serve.api.deps import get_db_session
-from ai_copilot_serve.core.errors import NotFoundError
-from ai_copilot_serve.db.models.workspace_db import Workspace
-from ai_copilot_serve.db.repositories.v12_repos import WorkspaceRepository
-from ai_copilot_serve.schemas.v12_tasks import (
+from api.deps import get_db_session
+from core.errors import NotFoundError
+from db.models.workspace_db import Workspace
+from db.repositories.v12_repos import WorkspaceRepository
+from schemas.v12_tasks import (
     WorkspaceCreate,
     WorkspacePatch,
     WorkspaceResponse,
     WorkspaceValidateCommand,
     WorkspaceValidatePath,
 )
-from ai_copilot_serve.services.workspace_guard import WorkspaceGuard
+from services.workspace_guard import WorkspaceGuard
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 
