@@ -196,7 +196,7 @@ flowchart LR
 ```text
 smc-copilot-serve/
 ├─ pyproject.toml, .env.example, alembic.ini
-├─ src/ai_copilot_serve/
+├─ src/copilot_serve/
 │  ├─ main.py, app.py
 │  ├─ core/          # config, logging, errors, lifecycle
 │  ├─ api/v1/        # health, profiles, gateways, hermes_runs

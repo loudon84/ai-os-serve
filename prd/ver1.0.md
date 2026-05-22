@@ -145,7 +145,7 @@ smc-copilot-serve/
 │  └─ smoke-test.sh
 │
 ├─ src/
-│  └─ ai_copilot_serve/
+│  └─ copilot_serve/
 │     ├─ __init__.py
 │     ├─ main.py
 │     ├─ app.py

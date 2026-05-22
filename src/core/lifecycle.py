@@ -79,7 +79,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         ]
 
     logger.info(
-        "ai_copilot_serve_started",
+        "copilot_serve_started",
         host=settings.copilot_host,
         port=settings.copilot_port,
         workers=not disable_workers,
@@ -94,4 +94,4 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     await supervisor.shutdown_all()
     await engine.dispose()
-    logger.info("ai_copilot_serve_stopped")
+    logger.info("copilot_serve_stopped")

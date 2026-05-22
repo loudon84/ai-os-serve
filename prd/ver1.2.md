@@ -171,10 +171,10 @@ profile_task         # Hermes Profile 配置任务
 ## 4.4 服务文件
 
 ```txt
-src/ai_copilot_serve/services/task_runtime.py
-src/ai_copilot_serve/services/task_state_machine.py
-src/ai_copilot_serve/db/models/task.py
-src/ai_copilot_serve/api/v1/tasks.py
+src/copilot_serve/services/task_runtime.py
+src/copilot_serve/services/task_state_machine.py
+src/copilot_serve/db/models/task.py
+src/copilot_serve/api/v1/tasks.py
 ```
 
 ## 4.5 验收标准
@@ -734,7 +734,7 @@ GET  /api/v1/system/version
 基于上一版目录，v1.2 需要重点新增：
 
 ```txt
-src/ai_copilot_serve/
+src/copilot_serve/
 ├─ api/v1/
 │  ├─ tasks.py
 │  ├─ team_tasks.py
