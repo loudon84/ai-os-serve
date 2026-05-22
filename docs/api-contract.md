@@ -176,6 +176,19 @@ When `COPILOT_REQUIRE_TOKEN=true`, send header `X-Copilot-Desktop-Token: <COPILO
 
 CORS: SSE responses include `Access-Control-Allow-Origin: http://127.0.0.1` for local Portal/Desktop fetch.
 
+## team_v1.7 — Windows Desktop 部署
+
+| 组件 | 说明 |
+|------|------|
+| 安装根目录 | `%LOCALAPPDATA%\Programs\SMC Copilot\runtime\copilot-serve` |
+| 部署脚本 | `runtime\deploy-copilot-serve.ps1`（clone、venv、`uv sync --extra service`、`.env`、`alembic upgrade head`） |
+| 环境变量 | `COPILOT_SERVE_ROOT`、`COPILOT_SERVE_PYTHON`（`.venv\Scripts\python.exe`）、`COPILOT_SERVE_PORT`（默认 8765） |
+| 启动方式 | **默认**：copilot-desktop Main Process `spawn` uvicorn；**可选**：`ai-copilot-service` Windows Service（勿与 spawn 同端口） |
+| SQLite | `~/.hermes/desktop/sqlite.db`（与 Desktop 一致） |
+| 验收 | `scripts/smoke-test-windows.ps1` 对运行中实例执行 health / profiles / 可选 gateway start |
+
+Desktop Renderer 通过 `window.copilotServe` 获取 connection（含 token）、状态、日志，并可触发 deploy / precheck。
+
 ## V1.0 acceptance checklist
 
 1. `GET /api/v1/profiles` lists registered profiles.
