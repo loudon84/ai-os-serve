@@ -3,52 +3,6 @@ revision = 3
 requires-python = "==3.12.*"
 
 [[package]]
-name = "ai-copilot-serve"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "aiosqlite" },
-    { name = "alembic" },
-    { name = "fastapi" },
-    { name = "httpx" },
-    { name = "psutil" },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-    { name = "python-dotenv" },
-    { name = "pyyaml" },
-    { name = "sqlalchemy", extra = ["asyncio"] },
-    { name = "structlog" },
-    { name = "uvicorn", extra = ["standard"] },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "aiosqlite", specifier = ">=0.20,<1" },
-    { name = "alembic", specifier = ">=1.13,<2" },
-    { name = "fastapi", specifier = ">=0.112,<1" },
-    { name = "httpx", specifier = ">=0.27,<1" },
-    { name = "psutil", specifier = ">=6,<8" },
-    { name = "pydantic", specifier = ">=2.8,<3" },
-    { name = "pydantic-settings", specifier = ">=2.4,<3" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8,<9" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23,<1" },
-    { name = "python-dotenv", specifier = ">=1.0,<2" },
-    { name = "pyyaml", specifier = ">=6,<7" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6,<1" },
-    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0,<3" },
-    { name = "structlog", specifier = ">=24.1,<25" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30,<1" },
-]
-provides-extras = ["dev"]
-
-[[package]]
 name = "aiosqlite"
 version = "0.22.1"
 source = { registry = "https://pypi.org/simple" }
@@ -407,6 +361,16 @@ wheels = [
 ]
 
 [[package]]
+name = "pywin32"
+version = "311"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e7/ab/01ea1943d4eba0f850c3c61e78e8dd59757ff815ff3ccd0a84de5f541f42/pywin32-311-cp312-cp312-win32.whl", hash = "sha256:750ec6e621af2b948540032557b10a2d43b0cee2ae9758c54154d711cc852d31", size = 8706543, upload-time = "2025-07-14T20:13:20.765Z" },
+    { url = "https://files.pythonhosted.org/packages/d1/a8/a0e8d07d4d051ec7502cd58b291ec98dcc0c3fff027caad0470b72cfcc2f/pywin32-311-cp312-cp312-win_amd64.whl", hash = "sha256:b8c095edad5c211ff31c05223658e71bf7116daa0ecf3ad85f3201ea3190d067", size = 9495040, upload-time = "2025-07-14T20:13:22.543Z" },
+    { url = "https://files.pythonhosted.org/packages/ba/3a/2ae996277b4b50f17d61f0603efd8253cb2d79cc7ae159468007b586396d/pywin32-311-cp312-cp312-win_arm64.whl", hash = "sha256:e286f46a9a39c4a18b319c28f59b61de793654af2f395c102b4f819e584b5852", size = 8710102, upload-time = "2025-07-14T20:13:24.682Z" },
+]
+
+[[package]]
 name = "pyyaml"
 version = "6.0.3"
 source = { registry = "https://pypi.org/simple" }
@@ -448,6 +412,56 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ab/a6/870a3e8a50590bb92be184ad928c2922f088b00d9dc5c5ec7b924ee08c22/ruff-0.15.13-py3-none-win_amd64.whl", hash = "sha256:7064884d442b7d477b4e7473d12da7f08851d2b1982763c5d3f388a19468a1a4", size = 11900409, upload-time = "2026-05-14T13:44:30.389Z" },
     { url = "https://files.pythonhosted.org/packages/9b/36/9c015cd052fca743dae8cb2aeb16b551444787467db42ceab0fc968865af/ruff-0.15.13-py3-none-win_arm64.whl", hash = "sha256:2471da9bd1068c8c064b5fd9c0c4b6dddffd6369cb1cd68b29993b1709ff1b21", size = 11179336, upload-time = "2026-05-14T13:44:33.026Z" },
 ]
+
+[[package]]
+name = "smc-copilot-serve"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "aiosqlite" },
+    { name = "alembic" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "psutil" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "python-dotenv" },
+    { name = "pyyaml" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
+    { name = "structlog" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "ruff" },
+]
+service = [
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiosqlite", specifier = ">=0.20,<1" },
+    { name = "alembic", specifier = ">=1.13,<2" },
+    { name = "fastapi", specifier = ">=0.112,<1" },
+    { name = "httpx", specifier = ">=0.27,<1" },
+    { name = "psutil", specifier = ">=6,<8" },
+    { name = "pydantic", specifier = ">=2.8,<3" },
+    { name = "pydantic-settings", specifier = ">=2.4,<3" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8,<9" },
+    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23,<1" },
+    { name = "python-dotenv", specifier = ">=1.0,<2" },
+    { name = "pywin32", marker = "sys_platform == 'win32' and extra == 'service'", specifier = ">=306" },
+    { name = "pyyaml", specifier = ">=6,<7" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6,<1" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0,<3" },
+    { name = "structlog", specifier = ">=24.1,<25" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30,<1" },
+]
+provides-extras = ["dev", "service"]
 
 [[package]]
 name = "sqlalchemy"

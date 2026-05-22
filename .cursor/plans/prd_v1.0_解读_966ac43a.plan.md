@@ -1,6 +1,6 @@
 ---
 name: PRD V1.0 解读
-overview: 基于 [prd/ver1.0.md](prd/ver1.0.md) 提炼 ai-copilot-serve（ai-os-desktop 本地控制面）的总体功能目标、架构边界与 V1.0 第一阶段交付/验收标准；不涉及与当前 ai-os-api 代码的整合。
+overview: 基于 [prd/ver1.0.md](prd/ver1.0.md) 提炼 smc-copilot-serve（smc-copilot-desktop 本地控制面）的总体功能目标、架构边界与 V1.0 第一阶段交付/验收标准；不涉及与当前 ai-os-api 代码的整合。
 todos:
   - id: v1-skeleton
     content: 搭建 FastAPI 骨架、配置、健康检查与日志
@@ -23,16 +23,16 @@ todos:
 isProject: false
 ---
 
-# ai-copilot-serve：功能目标与 V1.0 第一阶段计划
+# smc-copilot-serve：功能目标与 V1.0 第一阶段计划
 
 ## 1. 项目定位与总体目标
 
-PRD 将 **`ai-copilot-serve`** 定义为 **ai-os-desktop 的本地控制面（Local Control Plane / HermesLocalService）**，不是传统云端 Web 后端。
+PRD 将 **`smc-copilot-serve`** 定义为 **smc-copilot-desktop 的本地控制面（Local Control Plane / HermesLocalService）**，不是传统云端 Web 后端。
 
 ```mermaid
 flowchart TB
   ElectronUI["Electron Desktop UI"]
-  CopilotServe["ai-copilot-serve"]
+  CopilotServe["smc-copilot-serve"]
   GatewayProfiles["Hermes Gateway Profiles"]
   TeamHub["Team Task Hub / ai-os-full"]
   Workspace["Workspace / Local Tools"]
@@ -60,7 +60,7 @@ flowchart TB
 ### 架构边界原则（桌面端）
 
 - Renderer **不**直接管理 Hermes 进程、**不**读写 `~/.hermes`、**不**执行 shell
-- 所有动作经 `ai-copilot-serve` API：`Electron Main → ai-copilot-serve → Gateway Supervisor → Hermes Gateway Process`
+- 所有动作经 `smc-copilot-serve` API：`Electron Main → smc-copilot-serve → Gateway Supervisor → Hermes Gateway Process`
 
 ---
 
@@ -194,7 +194,7 @@ flowchart LR
 首期只需落地 PRD 中以下路径（其余目录可留空或 stub）：
 
 ```text
-ai-copilot-serve/
+smc-copilot-serve/
 ├─ pyproject.toml, .env.example, alembic.ini
 ├─ src/ai_copilot_serve/
 │  ├─ main.py, app.py
@@ -247,6 +247,6 @@ ai-copilot-serve/
 
 ## 6. 与当前 ai-os-api 仓库的关系（说明）
 
-当前 [README.md](README.md) / [docs/INDEX.md](docs/INDEX.md) 描述的是 **AI OS Portal 数据层**（documents、Postgres、S3），与 PRD 中的 **ai-copilot-serve 本地控制面** 是不同产品边界。按你的选择，本计划仅作 PRD 解读，不规划与现有 `app/modules/documents` 的代码整合。
+当前 [README.md](README.md) / [docs/INDEX.md](docs/INDEX.md) 描述的是 **AI OS Portal 数据层**（documents、Postgres、S3），与 PRD 中的 **smc-copilot-serve 本地控制面** 是不同产品边界。按你的选择，本计划仅作 PRD 解读，不规划与现有 `app/modules/documents` 的代码整合。
 
-若后续要在同一 monorepo 落地，建议保持 **包级隔离**（`ai-os-api` Portal vs `ai-copilot-serve` Local），避免 SQLite 本地服务与 Postgres Portal 配置混用。
+若后续要在同一 monorepo 落地，建议保持 **包级隔离**（`ai-os-api` Portal vs `smc-copilot-serve` Local），避免 SQLite 本地服务与 Postgres Portal 配置混用。

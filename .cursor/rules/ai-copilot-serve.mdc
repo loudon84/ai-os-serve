@@ -1,5 +1,5 @@
 ---
-description: Core project rules for ai-copilot-serve, the local control-plane service for ai-os-desktop and Hermes Gateway profiles.
+description: Core project rules for smc-copilot-serve, the local control-plane service for smc-copilot-desktop and Hermes Gateway profiles.
 globs:
   - "src/**/*.py"
   - "tests/**/*.py"
@@ -7,7 +7,7 @@ globs:
 alwaysApply: true
 ---
 
-# ai-copilot-serve Cursor Rules
+# smc-copilot-serve Cursor Rules
 
 This project is a local control-plane service. Keep routers thin, business logic in services, external integrations behind adapters, and all risky local execution behind Workspace Guard and Approval Runtime.
 

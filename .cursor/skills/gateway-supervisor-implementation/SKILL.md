@@ -5,7 +5,7 @@ license: Proprietary
 compatibility: Designed for Cursor Agent working on Python 3.12, FastAPI, asyncio subprocess, psutil, SQLite, Hermes Gateway.
 metadata:
   version: "1.0"
-  owner: "ai-os-desktop"
+  owner: "smc-copilot-desktop"
 ---
 
 # Gateway Supervisor Implementation Skill

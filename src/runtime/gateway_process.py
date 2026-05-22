@@ -6,10 +6,31 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import psutil
+
 from core.config import Settings
 from core.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def is_pid_alive(pid: int) -> bool:
+    try:
+        return psutil.pid_exists(pid)
+    except Exception:
+        return False
+
+
+def terminate_pid(pid: int, *, timeout: float = 10.0) -> None:
+    if not is_pid_alive(pid):
+        return
+    proc = psutil.Process(pid)
+    proc.terminate()
+    try:
+        proc.wait(timeout=timeout)
+    except psutil.TimeoutExpired:
+        proc.kill()
+        proc.wait(timeout=timeout)
 
 
 @dataclass
@@ -76,10 +97,7 @@ class GatewayProcessManager:
         self._handles[profile_id] = handle
         return handle
 
-    async def stop(self, profile_id: str) -> None:
-        handle = self._handles.pop(profile_id, None)
-        if handle is None:
-            return
+    async def _stop_handle(self, handle: GatewayProcessHandle) -> None:
         if handle.process and handle.is_alive():
             handle.process.terminate()
             try:
@@ -87,8 +105,20 @@ class GatewayProcessManager:
             except TimeoutError:
                 handle.process.kill()
                 await handle.process.wait()
+        elif handle.pid is not None:
+            await asyncio.to_thread(terminate_pid, handle.pid)
         if handle._log_file:
             handle._log_file.close()
+
+    async def stop(self, profile_id: str, *, pid: int | None = None) -> None:
+        handle = self._handles.pop(profile_id, None)
+
+        if handle is not None:
+            await self._stop_handle(handle)
+            return
+
+        if pid is not None and is_pid_alive(pid):
+            await asyncio.to_thread(terminate_pid, pid)
 
     async def shutdown_all(self) -> None:
         for profile_id in list(self._handles.keys()):
@@ -97,7 +127,6 @@ class GatewayProcessManager:
     def read_logs(self, profile_id: str, *, tail: int = 200) -> tuple[list[str], bool]:
         handle = self._handles.get(profile_id)
         if handle is None or handle.log_path is None or not handle.log_path.exists():
-            # try log file by name from settings dir
             return [], False
         lines = handle.log_path.read_text(encoding="utf-8", errors="replace").splitlines()
         truncated = len(lines) > tail

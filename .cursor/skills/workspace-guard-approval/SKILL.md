@@ -1,11 +1,11 @@
 ---
 name: workspace-guard-approval
-description: Use when implementing workspace path policies, command allowlist/denylist, approval gates, risky action interception, audit logs, or local execution safety for ai-copilot-serve.
+description: Use when implementing workspace path policies, command allowlist/denylist, approval gates, risky action interception, audit logs, or local execution safety for smc-copilot-serve.
 license: Proprietary
 compatibility: Designed for Cursor Agent, Python 3.12, FastAPI, SQLite, local shell adapters, Windows-compatible path validation.
 metadata:
   version: "1.0"
-  owner: "ai-os-desktop"
+  owner: "smc-copilot-desktop"
 ---
 
 # Workspace Guard and Approval Skill

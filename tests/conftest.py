@@ -62,6 +62,7 @@ async def app_client(
     app.state._test_gateway_supervisor = supervisor
     app.state._test_team_hub = stub_hub
     app.state._disable_workers = True
+    app.state._disable_gateway_autostart = True
 
     async with lifespan(app):
         transport = ASGITransport(app=app)

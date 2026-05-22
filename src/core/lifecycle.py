@@ -10,6 +10,7 @@ from core.config import get_settings
 from core.logging import configure_logging, get_logger
 from db.session import create_engine, create_sessionmaker
 from integrations.team_hub.client import HttpTeamHubClient, StubTeamHubClient
+from local_service.service_state import mark_service_boot
 from services.gateway_supervisor import GatewaySupervisor
 from services.task_routing_registry import TaskRoutingRegistry
 from workers.v12_workers import RunEventWorker, SyncOutboxWorker, TaskListenerWorker
@@ -31,6 +32,7 @@ def _hub_factory(settings) -> StubTeamHubClient | HttpTeamHubClient:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
+    mark_service_boot()
     settings = get_settings()
 
     # 生产环境仅通过 Alembic 建表/迁移；测试在 conftest 中调用 init_db(create_all)
@@ -55,6 +57,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.gateway_supervisor = supervisor
     app.state.team_hub = hub
     app.state.task_routing_registry = registry
+
+    disable_gateway_autostart = bool(getattr(app.state, "_disable_gateway_autostart", False))
+    if not disable_gateway_autostart:
+        await supervisor.reconcile_on_boot()
+        await supervisor.start_auto_start_profiles()
 
     bg_tasks: list[asyncio.Task[None]] = []
     disable_workers = bool(getattr(app.state, "_disable_workers", False))

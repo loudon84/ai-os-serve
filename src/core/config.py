@@ -18,7 +18,7 @@ def _resolve_project_root() -> Path:
 
 _PACKAGE_ROOT = _resolve_project_root()
 
-# 与 ai-os-desktop 用户数据目录一致；可通过 SQLITE_PATH 覆盖
+# 与 smc-copilot-desktop 用户数据目录一致；可通过 SQLITE_PATH 覆盖
 _DEFAULT_SQLITE_PATH = "~/.hermes/desktop/sqlite.db"
 
 

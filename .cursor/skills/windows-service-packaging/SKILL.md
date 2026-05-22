@@ -1,18 +1,18 @@
 ---
 name: windows-service-packaging
-description: Use when implementing Windows 10 Home installation, background service startup, no-console execution, service recovery, packaging scripts, or Electron bootstrap integration for ai-copilot-serve and Hermes Agent.
+description: Use when implementing Windows 10 Home installation, background service startup, no-console execution, service recovery, packaging scripts, or Electron bootstrap integration for smc-copilot-serve and Hermes Agent.
 license: Proprietary
 compatibility: Designed for Cursor Agent, Windows 10 Home, PowerShell, Electron, Python service process, Hermes Agent local runtime.
 metadata:
   version: "1.0"
-  owner: "ai-os-desktop"
+  owner: "smc-copilot-desktop"
 ---
 
 # Windows Service Packaging Skill
 
 ## Scope
 
-Implement one-click or low-friction Windows deployment for `ai-copilot-serve` and Hermes Agent runtime.
+Implement one-click or low-friction Windows deployment for `smc-copilot-serve` and Hermes Agent runtime.
 
 Core paths:
 
@@ -47,7 +47,7 @@ Preferred order:
 ## Implementation procedure
 
 1. Detect Python runtime or bundled runtime path.
-2. Validate `ai-copilot-serve` installation directory.
+2. Validate `smc-copilot-serve` installation directory.
 3. Generate environment file from template.
 4. Register service or scheduled task.
 5. Configure recovery behavior.

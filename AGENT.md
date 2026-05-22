@@ -2,7 +2,7 @@
 
 ## Project identity
 
-This repository implements `ai-copilot-serve`, the local control-plane service for `ai-os-desktop`.
+This repository implements `smc-copilot-serve`, the local control-plane service for `smc-copilot-desktop`.
 
 The service is not a generic backend. It manages local Hermes Agent runtimes, multiple Hermes Gateway profiles, team-assigned tasks, approval gates, workspace safety policies, and the API surface consumed by Electron / React desktop UI.
 
@@ -10,7 +10,7 @@ Primary architecture path:
 
 ```text
 Electron Desktop UI
-  -> ai-copilot-serve / HermesLocalService
+  -> smc-copilot-serve / HermesLocalService
   -> Hermes Gateway Profiles
   -> Team Task Hub / Workspace / Local Tools
 ```
@@ -20,7 +20,7 @@ Electron Desktop UI
 1. Electron Renderer must not directly manage Hermes processes.
 2. Electron Renderer must not read or write `~/.hermes` directly.
 3. Electron Renderer must not execute shell commands directly.
-4. All local runtime actions must go through `ai-copilot-serve` APIs.
+4. All local runtime actions must go through `smc-copilot-serve` APIs.
 5. All Hermes Gateway access must go through `HermesGatewayClient` or an adapter under `integrations/hermes/`.
 6. All risky actions must go through Approval Runtime and Workspace Guard.
 7. Never hardcode user secrets, model API keys, workspace paths, or private Git URLs.
@@ -53,7 +53,7 @@ Desktop integration:
 ```text
 src/                                    # 扁平源码根（dev-mode-dirs / pythonpath）
   __init__.py
-  main.py                               # 入口: main:app / ai-copilot-serve CLI
+  main.py                               # 入口: main:app / smc-copilot-serve CLI
   app.py                                # FastAPI 应用工厂
   version.py
   core/

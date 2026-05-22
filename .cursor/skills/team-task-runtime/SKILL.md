@@ -5,7 +5,7 @@ license: Proprietary
 compatibility: Designed for Cursor Agent, Python 3.12, FastAPI, httpx, SQLite, Hermes Gateway, ai-os-full Team Task Hub.
 metadata:
   version: "1.0"
-  owner: "ai-os-desktop"
+  owner: "smc-copilot-desktop"
 ---
 
 # Team Task Runtime Skill

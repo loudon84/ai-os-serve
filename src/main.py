@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 from app import build_asgi_app
+from core.config import get_settings
 
 app = build_asgi_app()
 
@@ -14,6 +15,7 @@ def main() -> None:
         host=settings.copilot_host,
         port=settings.copilot_port,
         reload=False,
+        app_dir="src",
     )
 
 

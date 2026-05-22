@@ -1,19 +1,19 @@
-下面按 `ai-copilot-serve` 作为 **ai-os-desktop 的本地服务层 / Local Control Plane** 来规划。依据是当前架构文档覆盖的模块：`ai-os-desktop 产品定位`、`HermesLocalService 本地控制面`、`多 Profile Hermes Gateway Supervisor`、`Team Task Runtime / 任务监听服务`、`人工审批闭环`、`Workspace 安全策略`、`ai-os-full / Team Task Hub 集成方案` 等。
+下面按 `smc-copilot-serve` 作为 **smc-copilot-desktop 的本地服务层 / Local Control Plane** 来规划。依据是当前架构文档覆盖的模块：`smc-copilot-desktop 产品定位`、`HermesLocalService 本地控制面`、`多 Profile Hermes Gateway Supervisor`、`Team Task Runtime / 任务监听服务`、`人工审批闭环`、`Workspace 安全策略`、`ai-os-full / Team Task Hub 集成方案` 等。
 
 ---
 
 # 1. 项目定位
 
-`ai-copilot-serve` 不建议设计成普通 Web 后端，而应定义为：
+`smc-copilot-serve` 不建议设计成普通 Web 后端，而应定义为：
 
-> **ai-os-desktop 的本地控制面服务，负责 Hermes Agent、多 Profile Gateway、任务监听、审批流、Workspace 安全、桌面端 API 的统一封装。**
+> **smc-copilot-desktop 的本地控制面服务，负责 Hermes Agent、多 Profile Gateway、任务监听、审批流、Workspace 安全、桌面端 API 的统一封装。**
 
 它位于：
 
 ```txt
 Electron Desktop UI
         ↓
-ai-copilot-serve / HermesLocalService
+smc-copilot-serve / HermesLocalService
         ↓
 Hermes Gateway Profiles / Local Tools / Team Task Hub / Workspace
 ```
@@ -59,11 +59,11 @@ Hermes Gateway Profiles / Local Tools / Team Task Hub / Workspace
 
 | 层级               | 技术选型                         | 说明                        |
 | ---------------- | ---------------------------- | ------------------------- |
-| Desktop Shell    | Electron                     | ai-os-desktop 主壳          |
+| Desktop Shell    | Electron                     | smc-copilot-desktop 主壳          |
 | Renderer         | React + TypeScript           | 页面 UI                     |
 | UI               | shadcn/ui + Tailwind         | 管理台、任务面板、profile 页面       |
 | IPC              | Electron IPC                 | 只做窗口能力、系统能力               |
-| Local API Client | fetch / axios / typed client | 调用 `ai-copilot-serve`     |
+| Local API Client | fetch / axios / typed client | 调用 `smc-copilot-serve`     |
 | Preload          | preload API 白名单              | 不让 Renderer 直接访问 Node API |
 
 原则：
@@ -72,7 +72,7 @@ Hermes Gateway Profiles / Local Tools / Team Task Hub / Workspace
 Renderer 不直接管理 Hermes 进程
 Renderer 不直接读写 ~/.hermes
 Renderer 不直接执行 shell
-所有动作走 ai-copilot-serve API
+所有动作走 smc-copilot-serve API
 ```
 
 ---
@@ -81,7 +81,7 @@ Renderer 不直接执行 shell
 
 | 集成对象           | 方案                                                 |
 | -------------- | -------------------------------------------------- |
-| Hermes Agent   | 由 ai-copilot-serve 启动与管理                           |
+| Hermes Agent   | 由 smc-copilot-serve 启动与管理                           |
 | Hermes Gateway | 每个 Profile 独立端口                                    |
 | Profile Config | 读取 / 写入 `~/.hermes/profiles/<profile>/config.yaml` |
 | Gateway API    | `/v1/models`、`/v1/runs`、`/v1/runs/{run_id}/events` |
@@ -104,7 +104,7 @@ Renderer 不直接执行 shell
 第一阶段不建议一开始做复杂消息队列。先用：
 
 ```txt
-ai-copilot-serve 定时 polling Team Task Hub
+smc-copilot-serve 定时 polling Team Task Hub
 ↓
 发现分派给当前用户 / 当前设备 / 当前 Agent 的任务
 ↓
@@ -130,7 +130,7 @@ Polling → SSE → WebSocket → MQ / Redis Stream
 建议采用单体服务清晰分层，不要一开始拆成过多微服务。
 
 ```txt
-ai-copilot-serve/
+smc-copilot-serve/
 ├─ README.md
 ├─ pyproject.toml
 ├─ uv.lock
@@ -272,7 +272,7 @@ ai-copilot-serve/
    │  ├─ install-service.ps1
    │  └─ service-template.env
    ├─ linux/
-   │  └─ ai-copilot-serve.service
+   │  └─ smc-copilot-serve.service
    └─ docker/
       └─ Dockerfile
 ```
@@ -351,7 +351,7 @@ RUNNING
 ```txt
 Electron Main Process
   ↓
-ai-copilot-serve API
+smc-copilot-serve API
   ↓
 Gateway Supervisor
   ↓
@@ -497,7 +497,7 @@ Workspace Guard
 
 ```yaml
 workspace:
-  root: "D:/workspace/ai-os-desktop"
+  root: "D:/workspace/smc-copilot-desktop"
   allowed_paths:
     - "apps/"
     - "packages/"
@@ -683,7 +683,7 @@ POST /api/v1/workspaces/{workspace_id}/validate-action
 
 ```txt
 - ai-os-full 分派任务给当前用户
-- ai-copilot-serve 能拉取任务
+- smc-copilot-serve 能拉取任务
 - 用户可在桌面端看到任务
 - 任务可绑定 coding profile 执行
 - 执行结果可同步回 Team Task Hub
@@ -737,7 +737,7 @@ POST /api/v1/workspaces/{workspace_id}/validate-action
 
 ```txt
 - Windows 10 Home 可安装
-- 开机后 ai-copilot-serve 自动启动
+- 开机后 smc-copilot-serve 自动启动
 - Electron 打开后能连接本地服务
 - Hermes Gateway 可由服务启动
 ```
@@ -747,7 +747,7 @@ POST /api/v1/workspaces/{workspace_id}/validate-action
 # 7. 推荐开发顺序
 
 ```txt
-第一步：先做 ai-copilot-serve FastAPI 骨架
+第一步：先做 smc-copilot-serve FastAPI 骨架
 第二步：做 SQLite schema + Alembic
 第三步：做 Profile Runtime
 第四步：做 Gateway Supervisor
@@ -770,4 +770,4 @@ POST /api/v1/workspaces/{workspace_id}/validate-action
 + 本地 Workspace 安全
 ```
 
-这条路径最贴合 `ai-os-desktop + Hermes Agent + ai-os-full` 的集成目标。
+这条路径最贴合 `smc-copilot-desktop + Hermes Agent + ai-os-full` 的集成目标。

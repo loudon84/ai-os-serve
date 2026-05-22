@@ -1,4 +1,4 @@
-# ai-copilot-serve API Contract (V1.0)
+# smc-copilot-serve API Contract (V1.0)
 
 Base URL: `http://127.0.0.1:8765` (configurable via `COPILOT_HOST` / `COPILOT_PORT`)
 

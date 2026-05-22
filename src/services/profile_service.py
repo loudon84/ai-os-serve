@@ -29,7 +29,12 @@ class ProfileService:
         existing = await self._repo.get_by_name(body.name)
         if existing is not None:
             raise ConflictError(f"Profile name '{body.name}' already exists")
-        port = allocate_port(self._settings, body.gateway_port)
+        profiles = await self._repo.list_all()
+        used_ports = {p.gateway_port for p in profiles}
+        try:
+            port = allocate_port(self._settings, body.gateway_port, used_ports)
+        except ValueError as exc:
+            raise ConflictError(str(exc)) from exc
         profile_path = str(profile_dir(self._settings, body.name))
         sync_profile_config(self._settings, body.name, port)
         profile = Profile(
@@ -53,8 +58,14 @@ class ProfileService:
             profile.name = body.name
         if body.type is not None:
             profile.type = body.type.value
-        if body.gateway_port is not None:
-            profile.gateway_port = body.gateway_port
+        if body.gateway_port is not None and body.gateway_port != profile.gateway_port:
+            profiles = await self._repo.list_all()
+            used_ports = {p.gateway_port for p in profiles if p.id != profile_id}
+            try:
+                port = allocate_port(self._settings, body.gateway_port, used_ports)
+            except ValueError as exc:
+                raise ConflictError(str(exc)) from exc
+            profile.gateway_port = port
             sync_profile_config(self._settings, profile.name, profile.gateway_port)
         if body.enabled is not None:
             profile.enabled = body.enabled

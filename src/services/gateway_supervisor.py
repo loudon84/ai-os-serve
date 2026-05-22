@@ -3,7 +3,6 @@
 import asyncio
 import time
 
-import psutil
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from core.config import Settings
@@ -14,7 +13,7 @@ from db.models.profile import Profile
 from db.repositories.profile_repo import ProfileRepository
 from db.repositories.v12_repos import AuditRepository
 from integrations.hermes.client import HermesGatewayClient
-from runtime.gateway_process import GatewayProcessManager
+from runtime.gateway_process import GatewayProcessManager, is_pid_alive, terminate_pid
 from schemas.profile import ProfileStatusResponse
 from services.profile_service import ProfileService
 
@@ -77,21 +76,28 @@ class GatewaySupervisor:
         alive = handle.is_alive() if handle else False
         pid = handle.pid if handle and alive else profile.gateway_pid
 
+        healthy = False
+        message: str | None = None
+        health_checked = False
+
         if profile.status == GatewayStatus.RUNNING.value and not alive:
-            if pid and not psutil.pid_exists(pid):
+            if pid and is_pid_alive(pid):
+                healthy = await HermesGatewayClient(profile.gateway_port).health_check()
+                health_checked = True
+                if not healthy:
+                    profile = await svc.set_status(profile, GatewayStatus.ERROR)
+                    message = "Gateway health check failed"
+            elif pid and not is_pid_alive(pid):
                 profile = await svc.set_status(profile, GatewayStatus.ERROR)
                 message = "Gateway process exited unexpectedly"
             else:
-                message = "Gateway process not tracked locally"
                 profile = await svc.set_status(profile, GatewayStatus.ERROR)
+                message = "Gateway process not tracked locally"
         elif alive and profile.status != GatewayStatus.RUNNING.value:
             profile = await svc.set_status(profile, GatewayStatus.RUNNING, pid=pid)
             message = None
-        else:
-            message = None
 
-        healthy = False
-        if profile.status == GatewayStatus.RUNNING.value:
+        if profile.status == GatewayStatus.RUNNING.value and not health_checked:
             healthy = await HermesGatewayClient(profile.gateway_port).health_check()
             if not healthy and not alive:
                 profile = await svc.set_status(profile, GatewayStatus.ERROR)
@@ -187,7 +193,7 @@ class GatewaySupervisor:
         session, svc = await self._with_session()
         try:
             profile = await svc.get_profile(profile_id)
-            await self._process_manager.stop(profile.id)
+            await self._process_manager.stop(profile.id, pid=profile.gateway_pid)
             profile = await svc.set_status(profile, GatewayStatus.STOPPED)
             await self._append_profile_audit(session, profile, "profile_stopped")
             await session.commit()
@@ -222,7 +228,134 @@ class GatewaySupervisor:
         return [], False
 
     async def shutdown_all(self) -> None:
+        session, svc = await self._with_session()
+        try:
+            profiles = await svc.list_profiles()
+            for profile in profiles:
+                if profile.status not in (
+                    GatewayStatus.RUNNING.value,
+                    GatewayStatus.STARTING.value,
+                ) and profile.gateway_pid is None:
+                    continue
+
+                await self._process_manager.stop(profile.id, pid=profile.gateway_pid)
+                profile = await svc.set_status(profile, GatewayStatus.STOPPED)
+                await self._append_profile_audit(
+                    session,
+                    profile,
+                    "profile_stopped",
+                    extra={"reason": "service_shutdown"},
+                )
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
         await self._process_manager.shutdown_all()
+
+    async def reconcile_on_boot(self) -> None:
+        """Reconcile DB running state with OS processes after service restart."""
+        session, svc = await self._with_session()
+        try:
+            profiles = await svc.list_profiles()
+            for profile in profiles:
+                if profile.status != GatewayStatus.RUNNING.value:
+                    continue
+
+                pid = profile.gateway_pid
+                handle = self._process_manager.get_handle(profile.id)
+                tracked_alive = handle.is_alive() if handle else False
+
+                if tracked_alive:
+                    await self._append_profile_audit(
+                        session,
+                        profile,
+                        "profile_reconciled",
+                        extra={"tracked": True, "action": "keep_running"},
+                    )
+                    continue
+
+                if pid and is_pid_alive(pid):
+                    healthy = await HermesGatewayClient(profile.gateway_port).health_check()
+                    if healthy:
+                        await self._append_profile_audit(
+                            session,
+                            profile,
+                            "profile_reconciled",
+                            extra={"tracked": False, "pid": pid, "action": "keep_running"},
+                        )
+                        continue
+
+                    await asyncio.to_thread(terminate_pid, pid)
+                    profile = await svc.set_status(profile, GatewayStatus.ERROR)
+                    await self._append_profile_audit(
+                        session,
+                        profile,
+                        "profile_reconciled",
+                        extra={"pid": pid, "action": "kill_unhealthy"},
+                    )
+                    continue
+
+                profile = await svc.set_status(profile, GatewayStatus.ERROR)
+                await self._append_profile_audit(
+                    session,
+                    profile,
+                    "profile_reconciled",
+                    extra={"action": "mark_error_pid_gone"},
+                )
+
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+    async def start_auto_start_profiles(self) -> list[ProfileStatusResponse]:
+        """Start profiles with enabled=true and auto_start=true that are not running."""
+        session, svc = await self._with_session()
+        try:
+            profiles = await svc.list_profiles()
+            targets = [
+                p
+                for p in profiles
+                if p.enabled
+                and p.auto_start
+                and p.status not in (GatewayStatus.RUNNING.value, GatewayStatus.STARTING.value)
+            ]
+        finally:
+            await session.close()
+
+        results: list[ProfileStatusResponse] = []
+        for profile in targets:
+            try:
+                result = await self.start_profile(profile.id)
+                results.append(result)
+            except Exception as exc:
+                logger.warning(
+                    "profile_autostart_failed",
+                    profile_id=profile.id,
+                    profile_name=profile.name,
+                    error=str(exc),
+                )
+                try:
+                    session2, svc2 = await self._with_session()
+                    try:
+                        p = await svc2.get_profile(profile.id)
+                        await self._append_profile_audit(
+                            session2,
+                            p,
+                            "profile_autostart_failed",
+                            extra={"reason": str(exc)},
+                        )
+                        await session2.commit()
+                    finally:
+                        await session2.close()
+                except Exception:
+                    pass
+        return results
 
     async def get_profile_for_hermes(self, profile_id: str) -> Profile:
         session, svc = await self._with_session()

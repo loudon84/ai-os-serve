@@ -14,9 +14,9 @@ from schemas.common import ErrorResponse
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="ai-copilot-serve",
+        title="smc-copilot-serve",
         version=__version__,
-        description="ai-os-desktop local control plane",
+        description="smc-copilot-desktop local control plane",
         lifespan=lifespan,
     )
 

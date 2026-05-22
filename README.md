@@ -1,6 +1,6 @@
-# ai-copilot-serve
+# smc-copilot-serve
 
-ai-os-desktop 本地控制面：Hermes Profile、Gateway 启停、models/runs 代理。
+smc-copilot-desktop 本地控制面：Hermes Profile、Gateway 启停、models/runs 代理。
 
 ## 开发
 

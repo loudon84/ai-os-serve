@@ -1,22 +1,22 @@
 ---
-name: ai-copilot-serve-architecture
-description: Use when designing, refactoring, or reviewing ai-copilot-serve architecture, module boundaries, service layout, API contracts, or database model placement for the local Hermes control plane.
+name: smc-copilot-serve-architecture
+description: Use when designing, refactoring, or reviewing smc-copilot-serve architecture, module boundaries, service layout, API contracts, or database model placement for the local Hermes control plane.
 license: Proprietary
 compatibility: Designed for Cursor Agent, Python 3.12, FastAPI, SQLAlchemy, SQLite, Hermes Gateway integration.
 metadata:
   version: "1.0"
-  owner: "ai-os-desktop"
+  owner: "smc-copilot-desktop"
 ---
 
-# ai-copilot-serve Architecture Skill
+# smc-copilot-serve Architecture Skill
 
 ## When to activate
 
-Use this skill when the user asks for architecture, project structure, module design, API layout, refactor strategy, or implementation planning for `ai-copilot-serve`.
+Use this skill when the user asks for architecture, project structure, module design, API layout, refactor strategy, or implementation planning for `smc-copilot-serve`.
 
 ## System boundary
 
-`ai-copilot-serve` is the local service layer for `ai-os-desktop`.
+`smc-copilot-serve` is the local service layer for `smc-copilot-desktop`.
 
 It must coordinate:
 

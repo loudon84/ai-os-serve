@@ -1,4 +1,4 @@
-# ai-copilot-serve — 文档索引
+# smc-copilot-serve — 文档索引
 
 > 本地控制面服务：Hermes Gateway 管理、任务调度、审批门控、工作空间安全策略。
 > 本索引面向 Agent 与开发者，用于按需加载项目文档。
@@ -7,7 +7,7 @@
 
 ## 一、项目定位
 
-`ai-copilot-serve` 是面向 **ai-os-desktop** 的本地控制面服务，职责：
+`smc-copilot-serve` 是面向 **smc-copilot-desktop** 的本地控制面服务，职责：
 
 - Hermes Gateway Profile 管理（CRUD / 启停 / 健康检查）
 - Hermes Run 代理（模型列表 / 运行 / 事件流）

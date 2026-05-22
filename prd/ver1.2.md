@@ -1,4 +1,4 @@
-下面继续定义 `ai-copilot-serve` 的**下一阶段功能规划**。这一阶段不再停留在“本地服务 + 多 Profile 管理”，而是进入：
+下面继续定义 `smc-copilot-serve` 的**下一阶段功能规划**。这一阶段不再停留在“本地服务 + 多 Profile 管理”，而是进入：
 
 > **本地 Agent 执行中枢 + 团队任务协作 + 安全审批 + 桌面产品化运维**
 
@@ -11,7 +11,7 @@
 建议下一阶段定义为：
 
 ```txt
-ai-copilot-serve v1.2
+smc-copilot-serve v1.2
 目标：从“本地 Hermes 管理服务”升级为“团队协作型 Agent Runtime 服务”
 ```
 
@@ -30,7 +30,7 @@ ai-copilot-serve v1.2
 # 2. 功能模块总览
 
 ```txt
-ai-copilot-serve v1.2
+smc-copilot-serve v1.2
 ├─ Team Task Listener          # 团队任务监听
 ├─ Local Task Runtime          # 本地任务运行时
 ├─ Profile Task Binding        # 任务与 Hermes Profile 绑定
@@ -48,12 +48,12 @@ ai-copilot-serve v1.2
 
 ## 3.1 功能目标
 
-让 `ai-copilot-serve` 能从 `ai-os-full / Team Task Hub` 拉取分派给当前用户、本机设备、本地 Agent 的任务。
+让 `smc-copilot-serve` 能从 `ai-os-full / Team Task Hub` 拉取分派给当前用户、本机设备、本地 Agent 的任务。
 
 第一阶段建议采用 **Polling**，不要一开始做 WebSocket / MQ。
 
 ```txt
-ai-copilot-serve
+smc-copilot-serve
   └─ 每 5~15 秒轮询 Team Task Hub
        └─ 拉取 assigned 状态任务
             └─ 写入本地 SQLite
@@ -102,7 +102,7 @@ POST /api/v1/team-tasks/{id}/sync
 
 ```txt
 1. ai-os-full 创建一条分派任务
-2. ai-copilot-serve 能自动拉取
+2. smc-copilot-serve 能自动拉取
 3. 本地 SQLite 能生成 local_task
 4. Electron 页面能看到该任务
 5. 重复拉取不会重复创建任务
@@ -355,8 +355,8 @@ CREATE TABLE workspaces (
 
 ```yaml
 workspace:
-  name: ai-os-desktop
-  root_path: D:/workspace/ai-os-desktop
+  name: smc-copilot-desktop
+  root_path: D:/workspace/smc-copilot-desktop
 
 paths:
   allow:
@@ -615,7 +615,7 @@ PATCH /api/v1/profiles/{profile_id}/tools/{tool_id}/policy
 2. 检查 Hermes Agent 安装状态
 3. 检查 profile 配置完整性
 4. 检查端口占用
-5. 检查 ai-copilot-serve 服务状态
+5. 检查 smc-copilot-serve 服务状态
 6. 检查 Electron 与 serve 版本兼容
 7. 支持本地日志导出
 ```
@@ -783,14 +783,14 @@ src/ai_copilot_serve/
 ```txt
 1. 同事 Agent 在 ai-os-full 创建任务
 2. Team Task Hub 分派给 loudon 的本地 Agent
-3. ai-copilot-serve polling 到任务
+3. smc-copilot-serve polling 到任务
 4. 写入 local_tasks
 5. Electron Task Workbench 显示新任务
 6. 任务类型为 coding_task
 7. 自动绑定 coding profile
 8. 发现该任务需要改代码，进入 WAITING_APPROVAL
 9. 用户审批通过
-10. ai-copilot-serve 调用 Hermes coding profile 创建 run
+10. smc-copilot-serve 调用 Hermes coding profile 创建 run
 11. Hermes 执行任务
 12. run events 写入 task_events
 13. Electron 实时显示执行过程
