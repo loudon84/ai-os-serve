@@ -2,6 +2,7 @@
 
 import asyncio
 import shlex
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -57,6 +58,27 @@ class GatewayProcessManager:
     def get_handle(self, profile_id: str) -> GatewayProcessHandle | None:
         return self._handles.get(profile_id)
 
+    async def _create_gateway_process(
+        self,
+        cmd: list[str],
+        log_file: object,
+    ) -> asyncio.subprocess.Process:
+        kwargs: dict[str, object] = {
+            "stdout": log_file,
+            "stderr": asyncio.subprocess.STDOUT,
+            "cwd": str(self._settings.hermes_home_path),
+        }
+
+        if sys.platform == "win32":
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = subprocess.SW_HIDE
+
+            kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+            kwargs["startupinfo"] = startupinfo
+
+        return await asyncio.create_subprocess_exec(*cmd, **kwargs)
+
     async def start(
         self,
         profile_id: str,
@@ -79,12 +101,7 @@ class GatewayProcessManager:
             cmd = [*base, "--port", str(port), "--profile", profile_name]
 
         logger.info("gateway_starting", profile_id=profile_id, cmd=cmd, port=port)
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=log_file,
-            stderr=asyncio.subprocess.STDOUT,
-            cwd=str(self._settings.hermes_home_path),
-        )
+        process = await self._create_gateway_process(cmd, log_file)
         handle = GatewayProcessHandle(
             profile_id=profile_id,
             profile_name=profile_name,
