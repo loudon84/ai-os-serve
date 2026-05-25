@@ -1,24 +1,35 @@
 # smc-copilot-serve — 文档索引
 
-> 本地控制面服务：Hermes Gateway 管理、任务调度、审批门控、工作空间安全策略。
-> 本索引面向 Agent 与开发者，用于按需加载项目文档。
+> 本地控制面服务：Hermes Gateway 多 Profile、任务运行时、审批门控、工作空间安全策略、**Workspaces Chat**（team_v1.8）。
+> 本索引与 [`AGENT.md`](../AGENT.md) 对齐，供 Agent / 开发者按需加载。
 
 ---
 
 ## 一、项目定位
 
-`smc-copilot-serve` 是面向 **smc-copilot-desktop** 的本地控制面服务，职责：
+`smc-copilot-serve`（包名 `smc-copilot-serve`）面向 **smc-copilot-desktop** 的本地控制面，职责：
 
-- Hermes Gateway Profile 管理（CRUD / 启停 / 健康检查）
-- Hermes Run 代理（模型列表 / 运行 / 事件流）
-- 本地任务运行时（创建 / 执行 / 取消 / 状态机）
-- 团队任务同步（Team Hub 拉取 / 认领 / Outbox 回写）
-- 审批门控（申请 / 批准 / 拒绝）
-- 工作空间安全策略（路径校验 / 命令分类 / Workspace Guard）
-- 任务路由规则（profile_type / require_approval）
-- 桌面工作台摘要
+| 域 | 说明 |
+|---|---|
+| Profile / Gateway | CRUD、启停/重启、健康、端口分配、审计事件 |
+| Hermes 代理 | 模型列表、Run 创建/查询/事件流 |
+| **Workspace Chat（v1.8）** | Profile resolve、默认模型、附件、Chat SSE 代理、会话历史（`state.db`） |
+| 本地任务（v1.2） | 创建/执行/取消、状态机、SSE 时间线 |
+| 团队任务（v1.2） | Team Hub 拉取/认领、绑定、Outbox 同步 |
+| 审批 / 工作空间 | 审批流、路径与命令策略（Workspace Guard） |
+| 角色库（v1.4.1） | Role spec 同步、预设导入、按 Profile 重编译 |
+| 桌面工作台 | 摘要计数、全局 SSE 事件流 |
 
-**不负责**：Agent 推理引擎实现、Hermes Gateway 进程内部逻辑、Electron UI 渲染。
+**不负责**：LLM 推理实现、Gateway 进程内部逻辑、Electron UI 渲染。
+
+**架构路径**（与 AGENT.md 一致）：
+
+```text
+Electron Desktop（Main 拉起 serve；Renderer 调 :8765）
+  → smc-copilot-serve / 可选 Windows Service
+  → Hermes Gateway（按 Profile 端口）
+  → Team Task Hub / Workspace / 本地工具（经 Guard + Approval）
+```
 
 ---
 
@@ -26,228 +37,205 @@
 
 | 层 | 选型 |
 |---|---|
-| 语言 | Python 3.12 |
-| API 框架 | FastAPI |
-| ASGI 服务器 | Uvicorn |
-| DTO / 契约 | Pydantic v2 |
-| 配置 | pydantic-settings |
-| ORM | SQLAlchemy 2.x async |
-| 数据库 | SQLite (aiosqlite，local-first desktop state) |
+| 语言 | Python 3.12（`>=3.12,<3.13`） |
+| API | FastAPI + Uvicorn |
+| DTO | Pydantic v2 + pydantic-settings |
+| ORM / DB | SQLAlchemy 2.x async + SQLite（aiosqlite） |
 | 迁移 | Alembic |
 | 出站 HTTP | httpx |
-| 进程管理 | asyncio subprocess + psutil |
+|  multipart 上传 | **python-multipart**（附件 `Form`/`UploadFile` 必需） |
+| 进程 | asyncio subprocess + psutil |
 | 测试 | pytest / pytest-asyncio |
 | 包管理 | uv |
 
+**桌面集成要点**：
+
+- 默认 `http://127.0.0.1:8765`，前缀 `/api/v1`
+- `COPILOT_REQUIRE_TOKEN=true` 时需头 `X-Copilot-Desktop-Token`（`/api/v1/health` 等白名单除外）
+- SSE 经纯 ASGI CORS 包装（`build_asgi_app`），见 v1.3.1 hotfix
+
 ---
 
-## 三、工程目录结构
+## 三、工程目录结构（当前）
 
 ```text
-ai-os-api/
-├── src/                                    # 扁平源码根 (pythonpath / --app-dir src)
-│   ├── __init__.py                         #   包声明
-│   ├── main.py                             #   入口: main:app
-│   ├── app.py                              #   FastAPI 应用工厂 create_app()
+copilot-serve/
+├── src/                              # 扁平源码根（pythonpath / --app-dir src）
+│   ├── main.py                       # 入口：uvicorn、smc-copilot-serve CLI
+│   ├── app.py                        # FastAPI 工厂 + 异常处理 + CORS 包装
+│   ├── version.py
 │   ├── api/
-│   │   ├── deps.py                         #     依赖注入
-│   │   ├── router.py                       #     API 路由聚合 (prefix=/api/v1)
-│   │   └── v1/                             #     V1 路由端点
-│   │       ├── health.py                   #       健康检查
-│   │       ├── system.py                   #       系统信息
-│   │       ├── profiles.py                 #       Profile CRUD + 启停
-│   │       ├── gateways.py                 #       Gateway 健康/日志
-│   │       ├── hermes_runs.py              #       Hermes Run 代理
-│   │       ├── tasks.py                    #       本地任务
-│   │       ├── team_tasks.py               #       团队任务绑定
-│   │       ├── task_routing.py             #       任务路由规则
-│   │       ├── approvals.py                #       审批
-│   │       ├── workspaces.py               #       工作空间
-│   │       └── desktop_workbench.py        #       桌面工作台摘要
-│   ├── core/
-│   │   ├── config.py                       #   全局配置 (pydantic-settings)
-│   │   ├── constants.py                    #   常量定义
-│   │   ├── enums.py                        #   枚举类型
-│   │   ├── errors.py                       #   CopilotError 异常类
-│   │   ├── lifecycle.py                    #   FastAPI lifespan 管理
-│   │   ├── logging.py                      #   日志配置
-│   │   └── task_routing.py                 #   任务路由逻辑
+│   │   ├── deps.py                   # 依赖注入、桌面 Token 校验
+│   │   ├── router.py                 # 聚合 /api/v1
+│   │   ├── middleware/
+│   │   │   └── cors_asgi.py          # 纯 ASGI CORS（SSE 安全）
+│   │   └── v1/
+│   │       ├── health.py
+│   │       ├── system.py
+│   │       ├── service.py            # Windows 服务状态
+│   │       ├── profiles.py
+│   │       ├── chat.py               # team_v1.8 Workspace Chat
+│   │       ├── attachments.py
+│   │       ├── gateways.py
+│   │       ├── hermes_runs.py
+│   │       ├── role_library.py       # v1.4.1 角色库
+│   │       ├── tasks.py
+│   │       ├── team_tasks.py
+│   │       ├── task_routing.py
+│   │       ├── approvals.py
+│   │       ├── workspaces.py
+│   │       └── desktop_workbench.py
+│   ├── core/                         # config / errors / lifecycle / logging / task_routing
 │   ├── db/
-│   │   ├── base.py                         #   SQLAlchemy DeclarativeBase
-│   │   ├── session.py                      #   async engine & session factory
-│   │   ├── models/
-│   │   │   ├── __init__.py                 #     模型导出
-│   │   │   ├── profile.py                  #     Profile 模型
-│   │   │   ├── local_task.py               #     LocalTask 模型
-│   │   │   ├── task_related.py             #     SyncOutbox / TaskEvent / TeamTaskBinding / AuditLog
-│   │   │   └── workspace_db.py             #     Workspace 模型
+│   │   ├── models/                   # profile, local_task, workspace, chat_*, role_spec, …
 │   │   └── repositories/
-│   │       ├── profile_repo.py             #     Profile 仓库
-│   │       └── v12_repos.py                #     V1.2 仓库 (task/approval/workspace)
-│   ├── schemas/
-│   │   ├── common.py                       #   ErrorResponse 等通用 schema
-│   │   ├── profile.py                      #   Profile DTO
-│   │   ├── gateway.py                      #   Gateway DTO
-│   │   ├── hermes.py                       #   Hermes DTO
-│   │   ├── system.py                       #   System DTO
-│   │   └── v12_tasks.py                    #   V1.2 任务/审批/工作空间 DTO
-│   ├── services/
-│   │   ├── profile_service.py              #   Profile 业务逻辑
-│   │   ├── gateway_supervisor.py           #   Gateway 进程监督
-│   │   ├── hermes_gateway_client.py        #   Hermes Gateway HTTP 客户端
-│   │   ├── task_runtime.py                 #   任务运行时
-│   │   ├── task_state_machine.py           #   任务状态机
-│   │   ├── task_sync_service.py            #   任务同步服务
-│   │   ├── task_routing_registry.py        #   任务路由注册
-│   │   ├── approval_service.py             #   审批服务
-│   │   ├── workspace_guard.py              #   工作空间安全守卫
-│   │   └── workbench_summary.py            #   工作台摘要服务
+│   ├── schemas/                      # Pydantic DTO（含 chat.py / attachments.py）
+│   ├── services/                     # 业务编排（见下表）
 │   ├── integrations/
-│   │   ├── hermes/
-│   │   │   ├── client.py                   #     Hermes Gateway HTTP 客户端
-│   │   │   ├── config_writer.py            #     Hermes 配置文件写入
-│   │   │   └── profile_loader.py           #     Hermes 配置文件加载
-│   │   └── team_hub/
-│   │       ├── client.py                   #     Team Hub 远程客户端 (Stub / HTTP)
-│   │       ├── dto.py                      #     Team Hub DTO
-│   │       └── errors.py                   #     Team Hub 错误定义
-│   ├── runtime/
-│   │   ├── gateway_process.py              #   网关进程管理
-│   │   └── port_allocator.py              #   端口分配器
-│   ├── workers/
-│   │   └── v12_workers.py                  #   V1.2 后台工作线程 (轮询/同步/健康检查)
+│   │   ├── hermes/                   # Gateway HTTP、config_writer、profile_loader
+│   │   └── team_hub/                 # 远程任务 Hub 客户端（Stub / HTTP）
+│   ├── runtime/                      # gateway_process、port_allocator
+│   ├── local_service/                # 可选 Windows 服务 CLI / 状态
+│   ├── workers/                      # v12 后台轮询与健康检查
 │   └── utils/
-│       └── paths.py                        #   路径工具函数
-├── migrations/                              # Alembic 迁移
-│   ├── env.py
-│   ├── script.py.mako
-│   └── versions/
-│       ├── 0001_create_profiles.py
-│       └── 0002_v12_tables.py
+├── migrations/versions/
+│   ├── 0001_create_profiles.py
+│   ├── 0002_v12_tables.py
+│   ├── 001_add_role_spec_and_profile_fields.py   # revision: 001_role_spec
+│   └── 20260525_team_v18_workspace_chat.py       # revision: 002_team_v18_chat
 ├── tests/
-│   ├── conftest.py                          # pytest 配置和 fixtures
-│   ├── test_v1_acceptance.py               # V1 API 验收测试
-│   ├── test_v12_integration.py             # V1.2 集成测试
-│   ├── test_checksum.py                    # 校验和测试
-│   ├── test_version_conflict.py            # 版本冲突测试
-│   ├── test_permission_service.py          # 权限服务测试
-│   └── test_snapshot_save_schema.py        # 快照保存 schema 测试
-├── scripts/
-│   ├── mock_hermes_gateway.py              # 模拟 Hermes 网关 (开发/测试用)
-│   └── smoke-test.ps1                      # PowerShell 冒烟测试脚本
+│   ├── api/
+│   │   ├── test_workspace_chat.py
+│   │   └── test_workspace_attachments.py
+│   ├── test_v1_acceptance.py
+│   ├── test_v12_integration.py
+│   └── …
 ├── docs/
-│   ├── INDEX.md                            # 本文件
-│   └── api-contract.md                     # API 契约文档
+│   ├── INDEX.md                      # 本文件
+│   └── api-contract.md               # HTTP 端点契约
+├── scripts/                          # mock_hermes_gateway、smoke-test*.ps1
 ├── prd/
-│   ├── ver1.0.md                           # V1.0 需求
-│   ├── ver1.2.md                           # V1.2 需求
-│   └── ver1.3.md                           # V1.3 需求
-├── app/                                    # [旧版] 前端数据层代码 (documents 模块, 端口 8000)
-├── pyproject.toml
-├── alembic.ini
-├── .env.example
 ├── AGENT.md
-└── README.md
+├── pyproject.toml
+└── alembic.ini
 ```
 
 ---
 
-## 四、已实现模块
+## 四、分层职责（与 AGENT.md 一致）
 
-### 4.1 System / Health
-
-| 分类 | 说明 |
+| 目录 | 职责 |
 |---|---|
-| API 前缀 | `/api/v1/health`, `/api/v1/system` |
-| 端点 | 健康检查、系统版本/路径信息 |
+| `api/v1/` | 薄路由；禁止写业务逻辑 |
+| `schemas/` | 请求/响应 DTO；禁止直接返回 ORM |
+| `db/models/` | SQLAlchemy 模型 |
+| `db/repositories/` | 数据访问；禁止调 Gateway / Shell / Team Hub |
+| `services/` | 业务编排 |
+| `integrations/hermes/` | Gateway 与配置读写 |
+| `integrations/team_hub/` | 远程任务同步 |
+| `runtime/` | 进程注册、端口、心跳 |
+| `workers/` | 轮询、重试、清理 |
 
-### 4.2 Profiles 模块
+### 4.x `services/` 关键模块
 
-| 分类 | 说明 |
+| 模块 | 说明 |
 |---|---|
-| API 前缀 | `/api/v1/profiles` |
-| 数据表 | `profiles` |
-| 功能 | Profile CRUD、Gateway 启停、状态查询 |
-
-### 4.3 Gateways 模块
-
-| 分类 | 说明 |
-|---|---|
-| API 前缀 | `/api/v1/gateways` |
-| 功能 | Gateway 健康检查、日志尾部读取 |
-
-### 4.4 Hermes Proxy 模块
-
-| 分类 | 说明 |
-|---|---|
-| API 前缀 | `/api/v1/profiles/{profile_id}/models`, `/api/v1/profiles/{profile_id}/runs` |
-| 功能 | 代理 Hermes Gateway 的模型列表、Run 创建/查询/事件流 |
-
-### 4.5 Tasks 模块 (V1.2)
-
-| 分类 | 说明 |
-|---|---|
-| API 前缀 | `/api/v1/tasks` |
-| 数据表 | `local_tasks`, `task_events` |
-| 功能 | 本地任务 CRUD、执行/取消、绑定 Profile、事件日志、SSE 流、审批申请 |
-
-### 4.6 Team Tasks 模块 (V1.2)
-
-| 分类 | 说明 |
-|---|---|
-| API 前缀 | `/api/v1/team-tasks` |
-| 数据表 | `team_task_bindings`, `sync_outbox` |
-| 功能 | Hub 拉取/认领、绑定列表、Outbox 同步 |
-
-### 4.7 Task Routing 模块 (V1.2)
-
-| 分类 | 说明 |
-|---|---|
-| API 前缀 | `/api/v1/task-routing` |
-| 功能 | 路由规则查询/更新 (profile_type / require_approval) |
-
-### 4.8 Approvals 模块 (V1.2)
-
-| 分类 | 说明 |
-|---|---|
-| API 前缀 | `/api/v1/approvals` |
-| 数据表 | `approvals` |
-| 功能 | 审批列表/待审、批准/拒绝 |
-
-### 4.9 Workspaces 模块 (V1.2)
-
-| 分类 | 说明 |
-|---|---|
-| API 前缀 | `/api/v1/workspaces` |
-| 数据表 | `workspaces` |
-| 功能 | 工作空间 CRUD、路径校验、命令分类 |
-
-### 4.10 Desktop Workbench 模块 (V1.2)
-
-| 分类 | 说明 |
-|---|---|
-| API 前缀 | `/api/v1/desktop/task-workbench` |
-| 功能 | 工作台摘要 (profiles/tasks/approvals 按状态计数) |
+| `profile_service.py` | Profile CRUD |
+| `gateway_supervisor.py` | Gateway 生命周期 |
+| `hermes_gateway_client.py` | Hermes Run/模型代理 |
+| `profile_ref_resolver.py` | `ref` → `profile_id`（id/name/default），`not_deployed` |
+| `chat_model_service.py` | 模型列表 + 默认模型持久化 |
+| `chat_stream_service.py` | Gateway SSE → 统一 `chat.*` 事件 |
+| `attachment_service.py` | 附件校验、落盘、上下文注入 |
+| `chat_session_service.py` | 读 Profile 目录下 `state.db` 会话消息 |
+| `task_runtime.py` / `task_sync_service.py` | 本地任务与 Hub 同步 |
+| `approval_service.py` / `workspace_guard.py` | 审批与路径/命令策略 |
+| `role_library_service.py` | 角色库同步与预设导入 |
+| `workbench_summary.py` / `workbench_event_stream.py` | 桌面工作台 |
 
 ---
 
-## 五、规划模块
+## 五、已实现 API 模块（路由文件 → 前缀）
 
-### 5.1 Local Shell 集成（规划中）
+完整 Method/Path 见 [`api-contract.md`](api-contract.md)。
 
-- 命令执行器与命令策略
-- Shell 执行须经 Workspace Guard 和 Approval Runtime 仲裁
-
-### 5.2 Audit 日志模块（规划中）
-
-- 操作审计日志查询 API (`/api/v1/audit`)
+| 模块 | 路由文件 | API 前缀 / 路径特征 | 数据表 / 外部依赖 |
+|---|---|---|---|
+| Health | `health.py` | `GET /api/v1/health` | — |
+| System | `system.py` | `GET /api/v1/system/info` | — |
+| Service | `service.py` | `GET /api/v1/service/status` | `profiles` 计数 |
+| **Workspace Chat** | `chat.py` | `/profiles/resolve`、`/profiles/{id}/chat/*`、`/profiles/{id}/sessions/{sid}/messages` | `profile_chat_settings`；Gateway SSE |
+| **Attachments** | `attachments.py` | `POST/DELETE /api/v1/workspaces/{id}/attachments` | `chat_attachments` |
+| Profiles | `profiles.py` | `/api/v1/profiles` + start/stop/restart/status/health/events | `profiles` |
+| Gateways | `gateways.py` | `/api/v1/gateways/{id}/health|logs` | Gateway 进程 |
+| Hermes proxy | `hermes_runs.py` | `/api/v1/profiles/{id}/models|runs` | Gateway HTTP |
+| Role library | `role_library.py` | `/role-library/*`、`/profiles/import-preset` | `profile_role_specs` |
+| Tasks | `tasks.py` | `/api/v1/tasks` + SSE | `local_tasks`, `task_events` |
+| Team tasks | `team_tasks.py` | `/api/v1/team-tasks` | `team_task_bindings`, `sync_outbox` |
+| Task routing | `task_routing.py` | `GET|PATCH /api/v1/task-routing` | 内存 + 环境变量 |
+| Approvals | `approvals.py` | `/api/v1/approvals` | `approvals` |
+| Workspaces | `workspaces.py` | `/api/v1/workspaces` + validate | `workspaces` |
+| Desktop workbench | `desktop_workbench.py` | `/api/v1/desktop/task-workbench/*` | 聚合 + SSE |
 
 ---
 
-## 六、索引维护规则
+## 六、数据库迁移链
 
-新增模块或文档时**必须**同步更新本文件：
+| Revision | 文件 | 内容 |
+|---|---|---|
+| `0001` | `0001_create_profiles.py` | `profiles` |
+| `0002` | `0002_v12_tables.py` | 任务、审批、工作空间、审计等 v1.2 表 |
+| `001_role_spec` | `001_add_role_spec_and_profile_fields.py` | Profile 展示字段 + `profile_role_specs` |
+| `002_team_v18_chat` | `20260525_team_v18_workspace_chat.py` | `profile_chat_settings`、`chat_attachments` |
 
-1. 在「已实现模块」或「规划模块」中增加对应条目。
-2. 更新目录结构树。
-3. 同步更新 `docs/api-contract.md` 和 `AGENT.md` 中相关描述。
+```bash
+uv sync
+uv run alembic upgrade head
+uv run uvicorn main:app --app-dir src --reload --host 127.0.0.1 --port 8765
+```
+
+生产环境仅使用 Alembic（`core/lifecycle.py`），勿依赖测试用 `init_db()`。
+
+---
+
+## 七、开发命令（摘自 AGENT.md）
+
+```bash
+uv sync
+uv run alembic upgrade head
+uv run uvicorn main:app --app-dir src --reload --host 127.0.0.1 --port 8765
+uv run pytest
+uv run ruff check .
+```
+
+Windows 冒烟：`scripts/smoke-test.ps1` / `scripts/smoke-test-windows.ps1`（若存在）。
+
+---
+
+## 八、规划 / 未实现
+
+| 项 | 说明 |
+|---|---|
+| `/api/v1/audit` 查询 API | 审计写入已有（如 Profile events），独立列表 API 未实现 |
+| `integrations/local_shell/` | Shell 执行经 Workspace Guard + Approval；目录规划中 |
+
+---
+
+## 九、相关文档
+
+| 文档 | 用途 |
+|---|---|
+| [`AGENT.md`](../AGENT.md) | Agent 工作手册、边界、编码与安全规则 |
+| [`api-contract.md`](api-contract.md) | **全量 HTTP 端点清单**与 Chat SSE/错误码 |
+| [`../prd/team_v1.8_chatpanel.md`](../prd/team_v1.8_chatpanel.md) | 桌面 Chat 产品 PRD（跨仓库） |
+| [`.env.example`](../.env.example) | 环境变量 |
+
+---
+
+## 十、索引维护规则
+
+新增模块或变更公共 API 时**必须**同步：
+
+1. 本文件「目录结构」「已实现 API 模块」「迁移链」
+2. [`api-contract.md`](api-contract.md) 端点表
+3. [`AGENT.md`](../AGENT.md) 的 layout / API design rules（若架构级变更）
