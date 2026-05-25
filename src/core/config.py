@@ -64,7 +64,10 @@ class Settings(BaseSettings):
     cors_allow_origins: str = Field(
         default="http://127.0.0.1,http://localhost",
         alias="CORS_ALLOW_ORIGINS",
-        description="Comma-separated origins for copilot-desktop renderer",
+        description=(
+            "Comma-separated origins for copilot-desktop renderer; "
+            "entries without port allow any port on that host (e.g. Vite :5173)"
+        ),
     )
 
     @property

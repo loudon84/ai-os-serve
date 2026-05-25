@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from urllib.parse import urlparse
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -9,10 +9,42 @@ CORS_ALLOW_HEADERS = "Content-Type, Authorization, X-Copilot-Desktop-Token, Last
 CORS_EXPOSE_HEADERS = "Content-Type"
 
 
-def _resolve_allow_origin(origin: str | None, allowed: list[str]) -> str:
-    if origin and origin in allowed:
+def _parse_origin_url(value: str) -> tuple[str | None, int | None]:
+    raw = value.strip()
+    if not raw:
+        return None, None
+    if "://" not in raw:
+        raw = f"http://{raw}"
+    parsed = urlparse(raw)
+    return parsed.hostname, parsed.port
+
+
+def _origin_is_allowed(origin: str, allowed: list[str]) -> bool:
+    if origin in allowed:
+        return True
+    req_host, req_port = _parse_origin_url(origin)
+    if not req_host:
+        return False
+    for entry in allowed:
+        if origin == entry:
+            return True
+        allow_host, allow_port = _parse_origin_url(entry)
+        if allow_host != req_host:
+            continue
+        # http://127.0.0.1 / http://localhost → 允许任意端口（electron-vite :5173 等）
+        if allow_port is None:
+            return True
+        if allow_port == req_port:
+            return True
+    return False
+
+
+def _resolve_allow_origin(origin: str | None, allowed: list[str]) -> str | None:
+    if origin and _origin_is_allowed(origin, allowed):
         return origin
-    return allowed[0] if allowed else "http://127.0.0.1"
+    if not origin:
+        return allowed[0] if allowed else "http://127.0.0.1"
+    return None
 
 
 class PureAsgiCorsMiddleware:
@@ -33,11 +65,15 @@ class PureAsgiCorsMiddleware:
         method = scope.get("method", "GET")
 
         if method == "OPTIONS":
-            await self._send_options(send, allow_origin)
+            if allow_origin:
+                await self._send_options(send, allow_origin)
+            else:
+                await send({"type": "http.response.start", "status": 403, "headers": []})
+                await send({"type": "http.response.body", "body": b"", "more_body": False})
             return
 
         async def send_with_cors(message: Message) -> None:
-            if message["type"] == "http.response.start":
+            if message["type"] == "http.response.start" and allow_origin:
                 hdrs = list(message.get("headers") or [])
                 hdrs.extend(
                     [
