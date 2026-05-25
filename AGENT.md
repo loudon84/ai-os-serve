@@ -38,6 +38,7 @@ Backend:
 - Alembic
 - SQLite for local-first desktop state
 - httpx for outbound HTTP
+- `python-multipart` (required by FastAPI `Form` / `UploadFile`, e.g. workspace chat attachments)
 - asyncio subprocess and psutil for process supervision
 - pytest and pytest-asyncio
 
