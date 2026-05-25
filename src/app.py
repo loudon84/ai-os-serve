@@ -7,9 +7,9 @@ from version import __version__
 from api.middleware.cors_asgi import PureAsgiCorsMiddleware
 from api.router import api_router
 from core.config import get_settings
-from core.errors import CopilotError
+from core.errors import ChatApiError, CopilotError
 from core.lifecycle import lifespan
-from schemas.common import ErrorResponse
+from schemas.common import ErrorBody, ErrorResponse, StructuredErrorResponse
 
 
 def create_app() -> FastAPI:
@@ -19,6 +19,19 @@ def create_app() -> FastAPI:
         description="smc-copilot-desktop local control plane",
         lifespan=lifespan,
     )
+
+    @app.exception_handler(ChatApiError)
+    async def chat_api_error_handler(_request: Request, exc: ChatApiError) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.http_status,
+            content=StructuredErrorResponse(
+                error=ErrorBody(
+                    code=exc.code,
+                    message=exc.message,
+                    details=exc.details or None,
+                )
+            ).model_dump(),
+        )
 
     @app.exception_handler(CopilotError)
     async def copilot_error_handler(_request: Request, exc: CopilotError) -> JSONResponse:

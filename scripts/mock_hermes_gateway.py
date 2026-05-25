@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import uuid
 from typing import Any
 
@@ -53,6 +54,46 @@ def cancel_run(run_id: str) -> dict[str, str]:
     if run_id in _runs:
         _runs[run_id]["status"] = "cancelled"
     return {"status": "ok"}
+
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class ChatCompletionBody(BaseModel):
+    model: str | None = None
+    messages: list[ChatMessage] = []
+    stream: bool = False
+
+
+@app.post("/v1/chat/completions")
+def chat_completions(body: ChatCompletionBody):
+    from fastapi.responses import StreamingResponse
+
+    if not body.stream:
+        return {
+            "choices": [{"message": {"role": "assistant", "content": "mock reply"}}],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3},
+        }
+
+    def generate():
+        chunks = ["mock ", "stream ", "reply"]
+        for piece in chunks:
+            payload = {
+                "choices": [{"delta": {"content": piece}}],
+            }
+            yield f"data: {json.dumps(payload)}\n\n"
+        usage = {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3}
+        yield f"data: {json.dumps({'usage': usage})}\n\n"
+        yield "data: [DONE]\n\n"
+
+    session_header = f"session_mock_{uuid.uuid4().hex[:12]}"
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"x-hermes-session-id": session_header},
+    )
 
 def main() -> None:
     parser = argparse.ArgumentParser()

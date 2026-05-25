@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends
 from api.deps import verify_desktop_token
 from api.v1 import (
     approvals,
+    attachments,
+    chat,
     desktop_workbench,
     gateways,
     health,
@@ -23,6 +25,8 @@ api_router = APIRouter(prefix="/api/v1", dependencies=[Depends(verify_desktop_to
 api_router.include_router(health.router)
 api_router.include_router(system.router)
 api_router.include_router(service.router)
+api_router.include_router(chat.router)
+api_router.include_router(attachments.router)
 api_router.include_router(profiles.router)
 api_router.include_router(role_library.router)
 api_router.include_router(gateways.router)

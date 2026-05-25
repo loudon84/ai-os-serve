@@ -159,6 +159,10 @@ Database access layer. Repositories must not call Hermes Gateway, shell, filesys
 
 Business orchestration layer.
 
+**team_v1.8 Workspace Chat:** `profile_ref_resolver.py`（ref→`profile_id`，含 `not_deployed`）、`chat_model_service.py`、`chat_stream_service.py`（Gateway SSE 代理）、`attachment_service.py`、`chat_session_service.py`（读 profile `state.db` 消息）。路由：`api/v1/chat.py`、`api/v1/attachments.py`；表 `profile_chat_settings`、`chat_attachments`。
+
+**team_v1.8.1 hotfix:** `chat.done` 携带 `resolved_session_id`；`GET .../sessions/{session_id}/messages`；`require_deployed_profile`；完整 PRD 错误码 factory（`core/errors.py`）。
+
 ### `integrations/hermes/`
 
 Hermes profile loading, config generation, gateway HTTP client, run event streaming.
@@ -265,6 +269,11 @@ Use these route groups:
 /api/v1/health
 /api/v1/system
 /api/v1/profiles
+/api/v1/profiles/resolve
+/api/v1/profiles/{profile_id}/chat/models
+/api/v1/profiles/{profile_id}/chat/model-config
+/api/v1/profiles/{profile_id}/chat/completions
+/api/v1/workspaces/{workspace_id}/attachments
 /api/v1/gateways
 /api/v1/profiles/{profile_id}/models
 /api/v1/profiles/{profile_id}/runs
