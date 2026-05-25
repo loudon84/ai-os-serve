@@ -183,6 +183,66 @@ async def test_resolve_profile_not_deployed(
 
 
 @pytest.mark.asyncio
+async def test_session_messages_from_state_db(
+    app_client: tuple[AsyncClient, GatewaySupervisor, object, object, object],
+) -> None:
+    import sqlite3
+
+    from core.config import Settings
+
+    client, _supervisor, settings, _hub, _app = app_client
+    assert isinstance(settings, Settings)
+    create_resp = await client.post(
+        "/api/v1/profiles",
+        json={
+            "name": "session-db-test",
+            "type": "default",
+            "gateway_port": 18650,
+            "enabled": True,
+            "auto_start": False,
+        },
+    )
+    assert create_resp.status_code == 201
+    profile_id = create_resp.json()["id"]
+    profile_path = settings.hermes_home_path / "profiles" / "session-db-test"
+    profile_path.mkdir(parents=True, exist_ok=True)
+    db_path = profile_path / "state.db"
+    conn = sqlite3.connect(str(db_path))
+    try:
+        conn.execute(
+            """
+            CREATE TABLE messages (
+                id INTEGER PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT,
+                timestamp INTEGER NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO messages (session_id, role, content, timestamp)
+            VALUES ('session_hist_1', 'user', 'hello from db', 1000),
+                   ('session_hist_1', 'assistant', 'reply from db', 1001)
+            """
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    resp = await client.get(
+        f"/api/v1/profiles/{profile_id}/sessions/session_hist_1/messages",
+    )
+    assert resp.status_code == 200
+    messages = resp.json()["messages"]
+    assert len(messages) == 2
+    assert messages[0]["role"] == "user"
+    assert messages[0]["content"] == "hello from db"
+    assert messages[1]["role"] == "assistant"
+
+
+@pytest.mark.asyncio
 async def test_session_messages_empty_without_db(
     app_client: tuple[AsyncClient, GatewaySupervisor, object, object, object],
 ) -> None:
