@@ -72,8 +72,12 @@ src/                                    # 扁平源码根（dev-mode-dirs / pyth
       health.py
       system.py
       profiles.py
+      chat.py
+      attachments.py
       gateways.py
       hermes_runs.py
+      role_library.py
+      service.py
       tasks.py
       team_tasks.py
       task_routing.py
@@ -86,6 +90,9 @@ src/                                    # 扁平源码根（dev-mode-dirs / pyth
     models/
       __init__.py
       profile.py
+      chat_settings.py
+      chat_attachment.py
+      role_spec.py
       local_task.py
       task_related.py
       workspace_db.py
@@ -95,8 +102,12 @@ src/                                    # 扁平源码根（dev-mode-dirs / pyth
   schemas/
     common.py
     profile.py
+    profile_events.py
     gateway.py
     hermes.py
+    chat.py
+    attachments.py
+    role_library.py
     system.py
     v12_tasks.py
   services/
@@ -199,7 +210,7 @@ uv run mypy src
 
 ### Database / Migrations (team_v1.4.1)
 
-Alembic chain: `0001` (profiles) → `0002` (v1.2 task tables) → `001_role_spec` (display fields + `profile_role_specs`).
+Alembic chain: `0001` (profiles) → `0002` (v1.2 task tables) → `001_role_spec` (display fields + `profile_role_specs`) → `002_team_v18_chat` (`profile_chat_settings`, `chat_attachments`).
 
 | Scenario | Command |
 |----------|---------|
@@ -377,8 +388,8 @@ Update docs when changing architecture, API contracts, runtime behavior, or depl
 Expected docs:
 
 ```text
-docs/INDEX.md
-docs/api-contract.md
+docs/INDEX.md          # 目录地图 + 模块索引（与代码同步）
+docs/api-contract.md   # 全量 HTTP 端点 + Chat SSE / 错误码
 ```
 
 ## Pull request / change summary format

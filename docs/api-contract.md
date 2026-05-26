@@ -1,30 +1,108 @@
-# smc-copilot-serve API Contract (V1.0)
+# smc-copilot-serve API Contract
 
-Base URL: `http://127.0.0.1:8765` (configurable via `COPILOT_HOST` / `COPILOT_PORT`)
+**Base URL:** `http://127.0.0.1:8765`（`COPILOT_HOST` / `COPILOT_PORT`）
 
-> **代码根目录**: 扁平 `src/`（`api/v1/`、`services/`、`db/models/`、`schemas/`）。启动：`uvicorn main:app`。SQLite 默认 `~/.hermes/desktop/sqlite.db`；建表仅用 Alembic。
+**代码根：** 扁平 `src/`；启动：`uv run uvicorn main:app --app-dir src --host 127.0.0.1 --port 8765`
 
-## System
+**SQLite 默认：** `~/.hermes/desktop/sqlite.db`（`COPILOT_SQLITE_PATH`）；Profile 数据目录 `~/.hermes/profiles/<name>/`
+
+**依赖：** 附件上传需安装 `python-multipart`（见 `pyproject.toml`）
+
+---
+
+## 鉴权与 CORS
+
+| 项 | 行为 |
+|---|---|
+| Header | `X-Copilot-Desktop-Token: <COPILOT_DESKTOP_TOKEN>` |
+| 开关 | `COPILOT_REQUIRE_TOKEN=true` 时除白名单外必填 |
+| 白名单 | `GET /api/v1/health`、`/docs`、`/openapi.json`、`/redoc` |
+| CORS | `build_asgi_app()` 纯 ASGI 包装；SSE 响应带 `Access-Control-Allow-Origin`（本地 Portal/Desktop） |
+
+---
+
+## 错误响应格式
+
+### 通用 Copilot 错误（`CopilotError`）
+
+```json
+{
+  "code": "not_found",
+  "message": "Profile xyz not found"
+}
+```
+
+| code | 典型 HTTP |
+|------|-----------|
+| `not_found` | 404 |
+| `conflict` | 409 |
+| `gateway_error` | 503 |
+| `hermes_client_error` | 502 |
+| `policy_denied` | 403 |
+| `invalid_state_transition` | 409 |
+| `team_hub_error` | 502 |
+
+### Workspace Chat 结构化错误（`ChatApiError`）
+
+```json
+{
+  "error": {
+    "code": "PROFILE_NOT_DEPLOYED",
+    "message": "Profile is not deployed on this machine",
+    "details": { "profile_id": "…" }
+  }
+}
+```
+
+| code | HTTP | 场景 |
+|------|------|------|
+| `PROFILE_NOT_FOUND` | 404 | resolve / profile 不存在 |
+| `PROFILE_NOT_DEPLOYED` | 400 | 本机无 profile 目录 |
+| `GATEWAY_NOT_RUNNING` | 503 | Gateway 未启动 |
+| `GATEWAY_HEALTH_FAILED` | 503 | 健康检查失败 |
+| `MODEL_LIST_FAILED` | 502 | 拉模型列表失败 |
+| `MODEL_CONFIG_INVALID` | 400 | 模型配置非法 |
+| `ATTACHMENT_TOO_LARGE` | 400 | 单文件 > 25MB |
+| `TOO_MANY_ATTACHMENTS` | 400 | 超过 10 个 |
+| `ATTACHMENT_TOTAL_SIZE_EXCEEDED` | 400 | 总大小 > 80MB |
+| `ATTACHMENT_NOT_FOUND` | 404 | 删除附件不存在 |
+| `ATTACHMENT_SCOPE_MISMATCH` | 400 | workspace/profile/session 不匹配 |
+| `WORKSPACE_NOT_FOUND` | 404 | workspace 不存在 |
+| `WORKSPACE_PATH_INVALID` | 400 | 路径校验失败 |
+| `CHAT_STREAM_FAILED` | 502 | Gateway SSE 失败 |
+| `CHAT_STREAM_ABORTED` | 400 | 流被 abort |
+
+---
+
+## 端点总览（按模块）
+
+> 下列路径均相对于 **`/api/v1`**，除非注明。
+
+### System / Health / Service
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/health` | Service liveness |
-| GET | `/api/v1/system/info` | Version, paths, default gateway port |
+| GET | `/health` | 存活探测（无需 Token 时可匿名） |
+| GET | `/system/info` | 版本、hermes_home、sqlite_path、默认 Gateway 端口 |
+| GET | `/service/status` | 服务 PID、uptime、Profile 运行计数（Windows 服务场景） |
 
-## Profiles
+### Profiles
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/profiles` | List profiles |
-| POST | `/api/v1/profiles` | Create profile |
-| GET | `/api/v1/profiles/{profile_id}` | Get profile |
-| PATCH | `/api/v1/profiles/{profile_id}` | Update profile |
-| DELETE | `/api/v1/profiles/{profile_id}` | Delete profile |
-| POST | `/api/v1/profiles/{profile_id}/start` | Start gateway |
-| POST | `/api/v1/profiles/{profile_id}/stop` | Stop gateway |
-| GET | `/api/v1/profiles/{profile_id}/status` | Profile + gateway status |
+| GET | `/profiles` | 列表 |
+| POST | `/profiles` | 创建 |
+| GET | `/profiles/{profile_id}` | 详情 |
+| PATCH | `/profiles/{profile_id}` | 更新 |
+| DELETE | `/profiles/{profile_id}` | 删除（204） |
+| POST | `/profiles/{profile_id}/start` | 启动 Gateway |
+| POST | `/profiles/{profile_id}/stop` | 停止 |
+| POST | `/profiles/{profile_id}/restart` | 重启 |
+| GET | `/profiles/{profile_id}/status` | 状态 |
+| GET | `/profiles/{profile_id}/health` | 健康（同 refresh status） |
+| GET | `/profiles/{profile_id}/events` | 任务事件 + 审计合并时间线（`?limit=1..500`） |
 
-### ProfileCreate
+**ProfileCreate 示例：**
 
 ```json
 {
@@ -36,40 +114,78 @@ Base URL: `http://127.0.0.1:8765` (configurable via `COPILOT_HOST` / `COPILOT_PO
 }
 ```
 
-### ProfileStatusResponse
+**ProfileStatusResponse：** `status` ∈ `stopped` | `starting` | `running` | `error` | `restarting`；含 `gateway_port`、`gateway_pid`、`healthy`、`message`。
+
+### Workspace Chat（team_v1.8 / v1.8.1）
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/profiles/resolve?ref=` | 解析 `ref`（id / name / `default`）→ `ResolvedProfile` |
+| GET | `/profiles/{profile_id}/chat/models` | 模型列表（Gateway 未运行时可 `models:[]`, `status: gateway_not_running`） |
+| GET | `/profiles/{profile_id}/chat/model-config` | 默认模型配置（可 null） |
+| PUT | `/profiles/{profile_id}/chat/model-config` | 保存默认模型 |
+| POST | `/profiles/{profile_id}/chat/completions` | **SSE** Chat 代理（见下） |
+| POST | `/profiles/{profile_id}/chat/abort?stream_id=` | 中止指定流 |
+| GET | `/profiles/{profile_id}/sessions/{session_id}/messages` | 会话历史（读 profile 目录 `state.db`） |
+
+**ResolvedProfile：** `status` 含 `not_deployed`（本机无部署目录，非 500）。
+
+**WorkspaceChatSendPayload：**
 
 ```json
 {
-  "profile_id": "uuid",
-  "status": "running",
-  "gateway_port": 8642,
-  "gateway_pid": 12345,
-  "healthy": true,
-  "message": null
+  "workspace_id": "<profile_id 或 workspace uuid>",
+  "session_id": "session_xxx",
+  "stream_id": "optional-stream-id",
+  "model": "optional-model-id",
+  "messages": [{ "role": "user", "content": "hello" }],
+  "attachments": ["attachment-id-1"],
+  "stream": true
 }
 ```
 
-Status values: `stopped`, `starting`, `running`, `error`, `restarting`.
+**Chat SSE（`text/event-stream`）统一事件：**
 
-## Gateways (V1.0: gateway_id = profile_id)
+| event | data 字段（均含 scope） | 说明 |
+|-------|-------------------------|------|
+| `chat.chunk` | `stream_id`, `profile_id`, `workspace_id`, `session_id`, `content` | 文本增量 |
+| `chat.tool_progress` | `name`, `label?` | 工具进度 |
+| `chat.usage` | `prompt_tokens`, `completion_tokens`, `total_tokens` | Token 用量 |
+| `chat.done` | 上述 + **`resolved_session_id?`**（Gateway `x-hermes-session-id`） | 流结束 |
+| `chat.error` | `message`, `details?` | 流错误 |
+
+Scope 校验：客户端应比对 `stream_id` + `profile_id` + `workspace_id` + `session_id`，避免切 Profile/Session 后串流。
+
+**Session messages：** 返回 `{ "messages": [{ "id", "role", "content", "timestamp" }] }`；无 `state.db` 时为空数组。
+
+### Attachments（multipart）
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/gateways/{gateway_id}/health` | Gateway health |
-| GET | `/api/v1/gateways/{gateway_id}/logs?tail=200` | Tail gateway stdout log |
+| POST | `/workspaces/{workspace_id}/attachments` | `multipart/form-data`：`profile_id`, `session_id`, `files[]` |
+| DELETE | `/workspaces/{workspace_id}/attachments/{attachment_id}` | 删除附件元数据与暂存文件 |
 
-## Hermes proxy
+响应含 `workspace_relative_path`、`text_preview`（文本类）；**不**在 API 中返回本机绝对路径。
 
-Requires profile gateway `running` and `healthy`.
+### Gateways
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/profiles/{profile_id}/models` | Proxy `GET /v1/models` |
-| POST | `/api/v1/profiles/{profile_id}/runs` | Proxy `POST /v1/runs` |
-| GET | `/api/v1/profiles/{profile_id}/runs/{run_id}` | Proxy `GET /v1/runs/{id}` |
-| GET | `/api/v1/profiles/{profile_id}/runs/{run_id}/events` | Proxy run events |
+| GET | `/gateways/{gateway_id}/health` | Gateway 健康（v1.0：`gateway_id` = `profile_id`） |
+| GET | `/gateways/{gateway_id}/logs?tail=200` | 日志尾部 |
 
-### HermesRunCreate
+### Hermes proxy（Run API）
+
+需 Profile Gateway `running` 且 `healthy`。
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/profiles/{profile_id}/models` | 代理 `GET /v1/models` |
+| POST | `/profiles/{profile_id}/runs` | 代理 `POST /v1/runs` |
+| GET | `/profiles/{profile_id}/runs/{run_id}` | 代理 `GET /v1/runs/{id}` |
+| GET | `/profiles/{profile_id}/runs/{run_id}/events` | Run 事件 |
+
+**HermesRunCreate：**
 
 ```json
 {
@@ -79,120 +195,117 @@ Requires profile gateway `running` and `healthy`.
 }
 ```
 
-## Errors
-
-JSON body:
-
-```json
-{
-  "code": "not_found",
-  "message": "Profile xyz not found"
-}
-```
-
-| code | HTTP |
-|------|------|
-| not_found | 404 |
-| conflict | 409 |
-| gateway_error | 503 |
-| hermes_client_error | 502 |
-| policy_denied | 403 |
-| invalid_state_transition | 409 |
-| team_hub_error | 502 |
-
-## V1.2 — Local tasks, Team Hub stub, approvals, workspaces, sync outbox
-
-Environment variables: see repository `.env.example` (`AIOS_*`, `TASK_ROUTING_JSON`).
-
-### Copilot ↔ Team Hub (placeholder)
-
-The service uses a **port-style** `TeamHubClient` (`poll_assignments`, `claim_assignment`, `push_task_update`). Default is `StubTeamHubClient`; set `AIOS_TEAM_HUB_BASE_URL` and `AIOS_TEAM_HUB_USE_STUB=false` to use `HttpTeamHubClient` against a real hub when paths are finalized.
-
-### Tasks
+### Role library（team_v1.4.1）
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/tasks` | List local tasks |
-| POST | `/api/v1/tasks` | Create local task |
-| GET | `/api/v1/tasks/{task_id}` | Get task |
-| POST | `/api/v1/tasks/{task_id}/run` | Execute Hermes run (gateway must be running + healthy) |
-| POST | `/api/v1/tasks/{task_id}/cancel` | Cancel task / best-effort Hermes cancel |
-| POST | `/api/v1/tasks/{task_id}/bind-profile` | JSON body `{ "profile_id": "..." }` |
-| GET | `/api/v1/tasks/{task_id}/events` | Task event log |
-| GET | `/api/v1/tasks/{task_id}/events/stream` | SSE-style stream (polling backend) |
-| POST | `/api/v1/tasks/{task_id}/request-approval` | Query: `action_type`, optional `risk_level`, `requested_by` |
+| POST | `/role-library/sync` | 同步角色库（可选 body） |
+| GET | `/role-library/specs` | 列出 Role spec |
+| POST | `/role-library/recompile/{profile_id}` | 按 Profile 重编译角色 |
+| POST | `/profiles/import-preset` | 导入预设 Profile 包 |
 
-### Team task bindings
+### Tasks（v1.2）
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/v1/team-tasks/pull` | Poll Hub (stub clears queue), ingest + claim |
-| GET | `/api/v1/team-tasks` | List bindings |
-| GET | `/api/v1/team-tasks/{binding_id}` | Get binding |
-| POST | `/api/v1/team-tasks/{binding_id}/claim` | Re-claim on Hub |
-| POST | `/api/v1/team-tasks/{binding_id}/sync` | Enqueue outbox sync for bound local task |
+| GET | `/tasks` | 列表 |
+| POST | `/tasks` | 创建 |
+| GET | `/tasks/{task_id}` | 详情 |
+| POST | `/tasks/{task_id}/run` | 执行（需 Gateway healthy） |
+| POST | `/tasks/{task_id}/cancel` | 取消 |
+| POST | `/tasks/{task_id}/bind-profile` | Body `{ "profile_id": "…" }` |
+| GET | `/tasks/{task_id}/events` | 事件日志 |
+| GET | `/tasks/{task_id}/events/stream` | **SSE** 任务时间线 |
+| POST | `/tasks/{task_id}/request-approval` | Query：`action_type`, `risk_level?`, `requested_by?` |
+
+任务终态后 SSE 约 **30s** 内关闭；支持 `Last-Event-ID`。
+
+### Team tasks（v1.2）
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/team-tasks/pull` | 轮询 Hub 并 ingest |
+| GET | `/team-tasks` | 绑定列表 |
+| GET | `/team-tasks/{binding_id}` | 单条绑定 |
+| POST | `/team-tasks/{binding_id}/claim` | 认领 |
+| POST | `/team-tasks/{binding_id}/sync` | 入队 Outbox 同步 |
+
+环境变量见 `.env.example`（`AIOS_TEAM_HUB_*`、`TASK_ROUTING_JSON`）。默认 `StubTeamHubClient`。
 
 ### Task routing
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/task-routing` | Effective rules (defaults + env + PATCH) |
-| PATCH | `/api/v1/task-routing` | Body `{ "rules": { "<task_type>": { "profile_type": "...", "require_approval": bool } } }` |
+| GET | `/task-routing` | 有效路由规则 |
+| PATCH | `/task-routing` | Body `{ "rules": { "<task_type>": { "profile_type", "require_approval" } } }` |
 
 ### Approvals
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/approvals` | Recent approvals |
-| GET | `/api/v1/approvals/pending` | Pending only |
-| GET | `/api/v1/approvals/{id}` | Get one |
-| POST | `/api/v1/approvals/{id}/approve` | Optional JSON `{ "approved_by": "..." }` |
-| POST | `/api/v1/approvals/{id}/reject` | Optional JSON `{ "actor": "...", "reason": "..." }` |
+| GET | `/approvals` | 最近审批 |
+| GET | `/approvals/pending` | 待审 |
+| GET | `/approvals/{approval_id}` | 单条 |
+| POST | `/approvals/{approval_id}/approve` | 可选 `{ "approved_by": "…" }` |
+| POST | `/approvals/{approval_id}/reject` | 可选 `{ "actor", "reason" }` |
 
 ### Workspaces
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/workspaces` | List |
-| POST | `/api/v1/workspaces` | Create |
-| GET | `/api/v1/workspaces/{id}` | Get |
-| PATCH | `/api/v1/workspaces/{id}` | Update |
-| DELETE | `/api/v1/workspaces/{id}` | Delete |
-| POST | `/api/v1/workspaces/{id}/validate-path` | Body `{ "path": "..." }` |
-| POST | `/api/v1/workspaces/{id}/validate-command` | Body `{ "command": "..." }` returns `classification` |
+| GET | `/workspaces` | 列表 |
+| POST | `/workspaces` | 创建 |
+| GET | `/workspaces/{workspace_id}` | 详情 |
+| PATCH | `/workspaces/{workspace_id}` | 更新 |
+| DELETE | `/workspaces/{workspace_id}` | 删除（204） |
+| POST | `/workspaces/{workspace_id}/validate-path` | Body `{ "path": "…" }` |
+| POST | `/workspaces/{workspace_id}/validate-command` | Body `{ "command": "…" }` → `classification` |
 
 ### Desktop workbench
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/desktop/task-workbench/summary` | Counts: profiles / tasks / approvals by status + stub Hub counters |
-| GET | `/api/v1/desktop/task-workbench/events/stream` | **SSE** global workbench events: `task_created` / `task_updated` / `approval_created` / `ping` (10s); supports `Last-Event-ID` |
+| GET | `/desktop/task-workbench/summary` | Profile/Task/Approval 计数 + Hub stub 计数 |
+| GET | `/desktop/task-workbench/events/stream` | **SSE** 全局：`task_created` / `task_updated` / `approval_created` / `ping`（10s） |
 
-Task timeline SSE (`GET /api/v1/tasks/{task_id}/events/stream`): `text/event-stream` with full `event_payload`, `run_id`, `Last-Event-ID`, idle `ping`, and stream closes **30s** after task reaches `completed` / `failed` / `cancelled`.
+---
 
-### Desktop auth (optional)
+## 桌面集成（copilot-desktop）
 
-When `COPILOT_REQUIRE_TOKEN=true`, send header `X-Copilot-Desktop-Token: <COPILOT_DESKTOP_TOKEN>` on all `/api/v1/*` except `/api/v1/health`. Electron Main injects the token when spawning uvicorn; Renderer reads it via `window.copilotServe.getConnection()`.
-
-CORS: SSE responses include `Access-Control-Allow-Origin: http://127.0.0.1` for local Portal/Desktop fetch.
-
-## team_v1.7 — Windows Desktop 部署
-
-| 组件 | 说明 |
+| 通道 | 用途 |
 |------|------|
-| 安装根目录 | `%LOCALAPPDATA%\Programs\SMC Copilot\runtime\copilot-serve` |
-| 部署脚本 | `runtime\deploy-copilot-serve.ps1`（clone、venv、`uv sync --extra service`、`.env`、`alembic upgrade head`） |
-| 环境变量 | `COPILOT_SERVE_ROOT`、`COPILOT_SERVE_PYTHON`（`.venv\Scripts\python.exe`）、`COPILOT_SERVE_PORT`（默认 8765） |
-| 启动方式 | **默认**：copilot-desktop Main Process `spawn` uvicorn；**可选**：`ai-copilot-service` Windows Service（勿与 spawn 同端口） |
-| SQLite | `~/.hermes/desktop/sqlite.db`（与 Desktop 一致） |
-| 验收 | `scripts/smoke-test-windows.ps1` 对运行中实例执行 health / profiles / 可选 gateway start |
+| `window.copilotServe` | 连接信息、Token、部署/预检（Main Process） |
+| `window.workspaceChat` | Workspaces Chat：resolve、模型、附件、**Main 代理 SSE**（IPC） |
+| Renderer 直连 serve | 会话历史 `GET .../sessions/{id}/messages`（Bearer 同 Token） |
 
-Desktop Renderer 通过 `window.copilotServe` 获取 connection（含 token）、状态、日志，并可触发 deploy / precheck。
+打包运行时：`%LOCALAPPDATA%\Programs\SMC-Copilot\runtime\serve`；部署后需 `uv sync` 含 **python-multipart**。
 
-## V1.0 acceptance checklist
+---
 
-1. `GET /api/v1/profiles` lists registered profiles.
-2. `POST /api/v1/profiles/{id}/start` → `status=running`, `healthy=true`.
-3. `GET /api/v1/profiles/{id}/models` returns models from gateway.
-4. `POST /api/v1/profiles/{id}/runs` returns `run_id`; events endpoint works.
-5. After gateway process kill, `GET .../status` reports `error` or `stopped`, `healthy=false`.
+## 验收检查（摘录）
+
+**V1.0 Profile / Gateway**
+
+1. `GET /api/v1/profiles` 有数据  
+2. `POST .../start` → `running`, `healthy=true`  
+3. `GET .../models` 返回 Gateway 模型  
+
+**team_v1.8 Chat**
+
+1. `GET /profiles/resolve?ref=default` 返回真实 `profile_id` 或 `not_deployed`  
+2. `PUT .../chat/model-config` 后刷新仍保留  
+3. `POST .../chat/completions` SSE 含 `chat.chunk` / `chat.done`；`chat.done` 可含 `resolved_session_id`  
+4. `POST /workspaces/{id}/attachments` multipart 成功；超大文件 `ATTACHMENT_TOO_LARGE`  
+5. `GET .../sessions/{sid}/messages` 有 `state.db` 时非空  
+
+**V1.2 任务**
+
+1. `GET /desktop/task-workbench/summary`  
+2. `GET /tasks/{id}/events/stream` 有事件流  
+
+---
+
+## 文档索引
+
+- 目录与模块地图：[`INDEX.md`](INDEX.md)  
+- Agent 规则：[`AGENT.md`](../AGENT.md)
