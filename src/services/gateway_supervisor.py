@@ -2,6 +2,7 @@
 
 import asyncio
 import time
+from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -14,10 +15,14 @@ from db.repositories.profile_repo import ProfileRepository
 from db.repositories.v12_repos import AuditRepository
 from integrations.hermes.client import HermesGatewayClient
 from runtime.gateway_process import GatewayProcessManager, is_pid_alive, terminate_pid
+from runtime.port_allocator import is_port_available
 from schemas.profile import ProfileStatusResponse
 from services.profile_service import ProfileService
 
 logger = get_logger(__name__)
+
+_STARTING_STALE_SEC = 60.0
+_PORT_FREE_WAIT_SEC = 5.0
 
 
 class GatewaySupervisor:
@@ -113,12 +118,55 @@ class GatewaySupervisor:
             message=message,
         )
 
+    def _starting_is_stale(self, profile: Profile) -> bool:
+        updated = profile.updated_at
+        if updated is None:
+            return False
+        if updated.tzinfo is None:
+            updated = updated.replace(tzinfo=timezone.utc)
+        age = (datetime.now(timezone.utc) - updated).total_seconds()
+        return age > _STARTING_STALE_SEC
+
+    @staticmethod
+    def _wrap_start_error(exc: Exception) -> Exception:
+        if isinstance(exc, (ConflictError, GatewayError)):
+            return exc
+        if isinstance(exc, FileNotFoundError):
+            return GatewayError(f"Hermes gateway command not found: {exc}")
+        if isinstance(exc, OSError):
+            return GatewayError(f"Failed to start gateway process: {exc}")
+        return GatewayError(f"Failed to start profile gateway: {exc}")
+
+    async def _recover_after_start_failure(self, profile_id: str, reason: str) -> None:
+        session2, svc2 = await self._with_session()
+        try:
+            p = await svc2.get_profile(profile_id)
+            if p.status in (GatewayStatus.STARTING.value, GatewayStatus.RUNNING.value):
+                p = await svc2.set_status(p, GatewayStatus.ERROR)
+            await self._append_profile_audit(
+                session2, p, "profile_start_failed", extra={"reason": reason}
+            )
+            await session2.commit()
+        finally:
+            await session2.close()
+
+    async def _wait_port_free(self, port: int, *, timeout: float = _PORT_FREE_WAIT_SEC) -> None:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if is_port_available("127.0.0.1", port):
+                return
+            await asyncio.sleep(0.2)
+        await self._process_manager.release_port(port)
+
     async def start_profile(self, profile_id: str) -> ProfileStatusResponse:
         session, svc = await self._with_session()
         try:
             profile = await svc.get_profile(profile_id)
             if not profile.enabled:
                 raise ConflictError(f"Profile {profile.name} is disabled")
+            if profile.status == GatewayStatus.STARTING.value and self._starting_is_stale(profile):
+                profile = await svc.set_status(profile, GatewayStatus.STOPPED)
+                await session.commit()
             if profile.status in (GatewayStatus.STARTING.value, GatewayStatus.RUNNING.value):
                 handle = self._process_manager.get_handle(profile.id)
                 if handle and handle.is_alive():
@@ -127,52 +175,52 @@ class GatewaySupervisor:
             profile = await svc.set_status(profile, GatewayStatus.STARTING)
             await session.commit()
 
-            await self._process_manager.start(
-                profile.id,
-                profile.name,
-                profile.gateway_port,
-                mock_command=self._mock_command,
-            )
-            handle = self._process_manager.get_handle(profile.id)
-            profile = await svc.set_status(
-                profile,
-                GatewayStatus.RUNNING,
-                pid=handle.pid if handle else None,
-            )
-
-            healthy = await self._wait_for_health(profile.gateway_port)
-            if not healthy:
-                profile = await svc.set_status(profile, GatewayStatus.ERROR)
-                await self._append_profile_audit(
-                    session, profile, "profile_start_failed", extra={"reason": "health_check_failed"}
-                )
-                raise GatewayError(f"Gateway on port {profile.gateway_port} failed health check")
-
-            await self._append_profile_audit(session, profile, "profile_started")
-            await session.commit()
-            return ProfileStatusResponse(
-                profile_id=profile.id,
-                status=GatewayStatus(profile.status),
-                gateway_port=profile.gateway_port,
-                gateway_pid=profile.gateway_pid,
-                healthy=True,
-                message=None,
-            )
-        except Exception as exc:
-            await session.rollback()
             try:
-                session2, svc2 = await self._with_session()
-                try:
-                    p = await svc2.get_profile(profile_id)
+                await self._process_manager.start(
+                    profile.id,
+                    profile.name,
+                    profile.gateway_port,
+                    mock_command=self._mock_command,
+                )
+                handle = self._process_manager.get_handle(profile.id)
+                profile = await svc.set_status(
+                    profile,
+                    GatewayStatus.RUNNING,
+                    pid=handle.pid if handle else None,
+                )
+
+                healthy = await self._wait_for_health(profile.gateway_port)
+                if not healthy:
+                    profile = await svc.set_status(profile, GatewayStatus.ERROR)
                     await self._append_profile_audit(
-                        session2, p, "profile_start_failed", extra={"reason": str(exc)}
+                        session,
+                        profile,
+                        "profile_start_failed",
+                        extra={"reason": "health_check_failed"},
                     )
-                    await session2.commit()
-                finally:
-                    await session2.close()
-            except Exception:
-                pass
-            raise
+                    await session.commit()
+                    raise GatewayError(
+                        f"Gateway on port {profile.gateway_port} failed health check"
+                    )
+
+                await self._append_profile_audit(session, profile, "profile_started")
+                await session.commit()
+                return ProfileStatusResponse(
+                    profile_id=profile.id,
+                    status=GatewayStatus(profile.status),
+                    gateway_port=profile.gateway_port,
+                    gateway_pid=profile.gateway_pid,
+                    healthy=True,
+                    message=None,
+                )
+            except Exception as exc:
+                await session.rollback()
+                reason = str(exc)
+                try:
+                    await self._recover_after_start_failure(profile_id, reason)
+                except Exception:
+                    logger.exception("profile_start_recovery_failed", profile_id=profile_id)
+                raise self._wrap_start_error(exc) from exc
         finally:
             await session.close()
 
@@ -186,14 +234,26 @@ class GatewaySupervisor:
         return False
 
     async def restart_profile(self, profile_id: str) -> ProfileStatusResponse:
+        session, svc = await self._with_session()
+        try:
+            profile = await svc.get_profile(profile_id)
+            port = profile.gateway_port
+        finally:
+            await session.close()
+
         await self.stop_profile(profile_id)
+        await self._wait_port_free(port)
         return await self.start_profile(profile_id)
 
     async def stop_profile(self, profile_id: str) -> ProfileStatusResponse:
         session, svc = await self._with_session()
         try:
             profile = await svc.get_profile(profile_id)
-            await self._process_manager.stop(profile.id, pid=profile.gateway_pid)
+            await self._process_manager.stop(
+                profile.id,
+                pid=profile.gateway_pid,
+                port=profile.gateway_port,
+            )
             profile = await svc.set_status(profile, GatewayStatus.STOPPED)
             await self._append_profile_audit(session, profile, "profile_stopped")
             await session.commit()

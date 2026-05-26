@@ -34,6 +34,29 @@ def terminate_pid(pid: int, *, timeout: float = 10.0) -> None:
         proc.wait(timeout=timeout)
 
 
+def find_pids_listening_on_port(port: int) -> list[int]:
+    """Return PIDs listening on 127.0.0.1:port (best-effort; may be empty without permissions)."""
+    pids: set[int] = set()
+    try:
+        for conn in psutil.net_connections(kind="inet"):
+            if not conn.laddr or conn.laddr.port != port:
+                continue
+            if conn.status not in (psutil.CONN_LISTEN, "LISTEN"):
+                continue
+            if conn.pid:
+                pids.add(conn.pid)
+    except (psutil.AccessDenied, PermissionError):
+        logger.warning("net_connections_denied", port=port)
+    except Exception as exc:
+        logger.warning("net_connections_failed", port=port, error=str(exc))
+    return sorted(pids)
+
+
+async def terminate_listeners_on_port(port: int, *, timeout: float = 10.0) -> None:
+    for pid in find_pids_listening_on_port(port):
+        await asyncio.to_thread(terminate_pid, pid, timeout=timeout)
+
+
 @dataclass
 class GatewayProcessHandle:
     profile_id: str
@@ -127,15 +150,28 @@ class GatewayProcessManager:
         if handle._log_file:
             handle._log_file.close()
 
-    async def stop(self, profile_id: str, *, pid: int | None = None) -> None:
+    async def stop(self, profile_id: str, *, pid: int | None = None, port: int | None = None) -> None:
         handle = self._handles.pop(profile_id, None)
 
         if handle is not None:
             await self._stop_handle(handle)
-            return
+            port = port or handle.port
 
         if pid is not None and is_pid_alive(pid):
             await asyncio.to_thread(terminate_pid, pid)
+
+        if port is not None:
+            from runtime.port_allocator import is_port_available
+
+            if not is_port_available("127.0.0.1", port):
+                await terminate_listeners_on_port(port)
+
+    async def release_port(self, port: int) -> None:
+        """Force-release a gateway port when stop did not clear an orphan listener."""
+        from runtime.port_allocator import is_port_available
+
+        if not is_port_available("127.0.0.1", port):
+            await terminate_listeners_on_port(port)
 
     async def shutdown_all(self) -> None:
         for profile_id in list(self._handles.keys()):

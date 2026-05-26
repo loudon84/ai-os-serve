@@ -16,13 +16,19 @@ class ProfileRefResolver:
 
     async def resolve(self, ref: str) -> ResolvedProfile:
         profile = await self._resolve_profile(ref)
-        healthy = False
-        if profile.status == GatewayStatus.RUNNING.value:
-            healthy = await HermesGatewayClient(profile.gateway_port).health_check()
         base_url = f"http://127.0.0.1:{profile.gateway_port}"
         status = profile.status
+        healthy = False
+
         if status == GatewayStatus.ERROR.value:
             status = "failed"
+        elif status == GatewayStatus.STARTING.value:
+            status = "starting"
+        elif status == GatewayStatus.RUNNING.value:
+            healthy = await HermesGatewayClient(profile.gateway_port).health_check()
+        elif status == GatewayStatus.STOPPED.value:
+            status = "stopped"
+
         profile_path = (profile.profile_path or "").strip()
         if not profile_path or not Path(profile_path).exists():
             status = "not_deployed"

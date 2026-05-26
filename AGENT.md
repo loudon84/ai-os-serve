@@ -284,6 +284,8 @@ Use these route groups:
 /api/v1/audit
 ```
 
+**Profile gateway lifecycle (team_v1.8.3):** `POST .../start|stop|restart` — start 失败将 DB 从 `starting` 置 `error` 并返回 503 `gateway_error`；stop 释放端口监听；restart 在 stop 后等待端口空闲再 start。`GET .../resolve` 在 `starting` 时返回 `healthy=false`。
+
 Rules:
 
 1. Keep route naming stable.
@@ -360,7 +362,7 @@ For any non-trivial change, add or update tests.
 Minimum test coverage by module:
 
 - Profile Runtime: profile CRUD, config path handling, port allocation.
-- Gateway Supervisor: start/stop/restart state transitions with mocked subprocess.
+- Gateway Supervisor: start/stop/restart state transitions with mocked subprocess（**team_v1.8.3**：start 失败恢复 DB 状态；stop 释放端口；restart 等待端口空闲；见 `tests/api/test_profile_start_failure_recovery.py`）。
 - Hermes Client: models, runs, stream events with mocked HTTP.
 - Task Runtime: polling, claim, local creation, idempotency, sync.
 - Approval Runtime: pending/approve/reject flows.
